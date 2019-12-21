@@ -6,8 +6,8 @@ using Statistics
 using LinearAlgebra
 using JLD
 using MFGnet
-include("viewers.jl")
-include("runOMThelpers.jl")
+include("../examples/ROLNWF2019/viewers.jl")
+include("../examples/ROLNWF2019/runOMThelpers.jl")
 
 iter        = 500
 d           = 100
