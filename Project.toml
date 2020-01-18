@@ -6,10 +6,12 @@ authors = ["Lars Ruthotto <lruthotto@emory.edu>", "Samy Wu Fung <swufung@math.uc
 version = "0.0.3"
 
 [deps]
+Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
-Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
-Zygote ="e88e6eb3-aa80-5325-afca-941959d7151f"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
+jInv = "3dacf901-f8cd-5544-86ed-7a705f85c244"
 
 [compat]
 julia = "1.2"
