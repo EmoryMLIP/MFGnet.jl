@@ -6,8 +6,8 @@ using Plots
 using JLD
 using Revise
 using MFGnet
-include("../examples/ROLNWF2019/viewers.jl")
-include("../examples/ROLNWF2019/runOMThelpers.jl")
+include("viewers.jl")
+include("runOMThelpers.jl")
 
 # set default experimental parameters
 @isdefined(R)  ? R = R : R = Float64                                  # element type. Use Float32 or Float64
@@ -24,7 +24,7 @@ include("../examples/ROLNWF2019/runOMThelpers.jl")
 @isdefined(sampleFreq)  ? sampleFreq = sampleFreq : sampleFreq = 25   # sample frequency
 @isdefined(saveIter)    ? saveIter = saveIter     : saveIter   = 25   # iteration to save weights
 @isdefined(maxIter)     ? maxIter  = maxIter      : maxIter = 200     # max number of iters
-@isdefined(optim)       ? optim  = optim        : optim = :bfgs       # optimization algorithm  
+@isdefined(optim)       ? optim  = optim        : optim = :bfgs       # optimization algorithm
 @isdefined(sigQ)        ? sigQ = sigQ           : sigQ = R.([1.0; 0.5]) # variance of obstacle Gaussian
 @isdefined(Qheight)     ? Qheight = Qheight     : Qheight = 50.0 # height/mass of obstacle Gaussian
 @isdefined(muFp)        ? muFp = muFp           : muFp = 1.0     # penalty for F preference

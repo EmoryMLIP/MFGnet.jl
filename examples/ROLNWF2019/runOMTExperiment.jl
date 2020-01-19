@@ -6,8 +6,8 @@ using Plots
 using JLD
 using Revise
 using MFGnet
-include("../ROLNWF2019/viewers.jl")
-include("../ROLNWF2019/runOMThelpers.jl")
+include("viewers.jl")
+include("runOMThelpers.jl")
 
 # set default experimental parameters
 @isdefined(R)  ? R = R : R = Float64                                  # element type. Use Float32 or Float64

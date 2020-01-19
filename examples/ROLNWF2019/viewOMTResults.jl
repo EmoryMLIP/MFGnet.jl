@@ -6,54 +6,22 @@ using Statistics
 using LinearAlgebra
 using JLD
 using MFGnet
-include("../examples/ROLNWF2019/viewers.jl")
-include("../examples/ROLNWF2019/runOMThelpers.jl")
+include("viewers.jl")
+include("runOMThelpers.jl")
 
 iter        = 500
-d           = 100
-nSamples    = 192
+d           = 2
 
-file = "OMT-BFGS-d-"*string(d)*"-nSamples-"*string(nSamples)*"-iter"*string(iter)*".jld"
-
-res  = load(file)
+dir = pwd()
+fname ="OMT-BFGS-d-"*string(d)*"-iter"*string(iter)
+imgdir = dir * "/" * fname *"/"
+println("fname=$fname")
+file = fname * ".jld"
+res = load(file)
 settings = res["settings"]
 (m,α,nTrain,R,d,domain,nTh,m,nt,T) = settings
 
-His = res["His"]
-
-objTrain = sum(His[:,1:5],dims=2)
-objVal   = sum(His[:,6:10],dims=2)
-
-costLTrain          = His[:,1]
-
-costFTrain          = His[:,2]
-costGTrain          = His[:,3]
-costHJBTrain        = His[:,4]
-costHJBFinalTrain   = His[:,5]
-
-costLVal            = His[:,6]
-costFVal            = His[:,7]
-costGVal            = His[:,8]
-costHJBVal          = His[:,9]
-costHJBFinalVal     = His[:,10]
-
-costLTrain = costLTrain[1:iter]
-costFTrain = costFTrain[1:iter]
-costGTrain = costGTrain[1:iter]
-costHJBTrain = costHJBTrain[1:iter]
-costHJBFinalTrain = costHJBFinalTrain[1:iter]
-
-costLVal            = costLVal[1:iter]
-costFVal            = costFVal[1:iter]
-costGVal            = costGVal[1:iter]
-costHJBVal          = costHJBVal[1:iter]
-costHJBFinalVal     = costHJBFinalVal[1:iter]
-
-objTrain = objTrain[1:iter]
-objVal  = objVal[1:iter]
-
 stepper = RK4Step()
-
 if !@isdefined(ar)
     ar = x-> R.(x)
 end
@@ -70,27 +38,21 @@ end
 rho0 = GaussianMixture(Gs)
 rho1 = Gaussian(d,sig,zeros(d),1.0)
 
-M      = getRegularMesh(domain, [64, 64])
-X0     = Matrix(getCellCenteredGrid(M)')
-
+M   = getRegularMesh(domain, [128, 128])
+X0  = Matrix(getCellCenteredGrid(M)')
 X0  = ar([X0; zeros(d-2,size(X0,2))])
 
 Φ = getPotentialResNet(nTh, T, nTh, R)
-Θ0 = initializeWeights(d,m,nTh)
 
 # setup validation
 rho0x = rho0(X0)
 rho1x = rho1(X0)
 
 vol     = (domain[2]-domain[1])^d
-w         = (vol/64^2) * rho0x
-sum(w)
-
-
+w         = (vol/M.nc) * rho0x
 F = F0()
 G = Gkl(rho0,rho1,rho0x,rho1x,R.(1.0))
 J = MeanFieldGame(F,G,X0,rho0,w,Φ=Φ,stepper=stepper,nt=nt,α=α)
-
 J.rho0x = rho0(J.X0)
 J.G.rho0x = rho0(J.X0)
 J.G.rho1x = rho1(J.X0)
@@ -100,97 +62,108 @@ Jc  = J(Θbest)
 ## plots:
 p1= viewImage2D(J.rho0x,M,aspect_ratio=:equal)
 title!("rho0(x)")
+savefig(p1,imgdir * "rho0x-n-$(M.n[1])x$(M.n[2]).png")
+
 p2= viewImage2D(J.G.rho1x,M,aspect_ratio=:equal)
 title!("rho1(x)")
+savefig(p2,imgdir * "rho1x-n-$(M.n[1])x$(M.n[2]).png")
+
 detDy = exp.(J.UN[d+1,:])
 rho1y = (J.G.rho1(J.UN[1:d,:]).*detDy)
 p3= viewImage2D(rho1y ,M,aspect_ratio=:equal,clims=(minimum(J.rho0x),maximum(J.rho0x)))
 # p3= viewImage2D(rho1y ,M,aspect_ratio=:equal)
 title!("rho1(y).*det")
+savefig(p3,imgdir * "rho1y-n-$(M.n[1])x$(M.n[2]).png")
 
-diff = J.rho0x - rho1y
-p4 = viewImage2D(abs.(diff),M,aspect_ratio=:equal,clims=(minimum(J.rho0x),maximum(J.rho0x)))
-# p4 = viewImage2D(abs.(res),M,aspect_ratio=:equal)
-title!("rho0x-rho1y.*det") # where's the determinant
+res0 = J.rho0x - rho1y
+p4 = viewImage2D(abs.(res0),M,aspect_ratio=:equal)
+title!("| rho0(x)-rho1(y).*det |") # where's the determinant
+savefig(p4,imgdir * "absDiffRho-n-$(M.n[1])x$(M.n[2]).png")
 
 p5 = viewImage2D(detDy,M,aspect_ratio=:equal)
 title!("det")
+savefig(p5,imgdir * "det-n-$(M.n[1])x$(M.n[2]).png")
 
-p6 = plot(log.(objTrain),linewidth=3,legend=false)
-plot!(p6, log.(objVal),linewidth=3,legend=false)
-title!("log objective values")
+xc = [ J.X0; fill(0.0,1,size(J.X0,2))]
+Φ0 = J.Φ(xc,Θbest)
+p6 = viewImage2D(Φ0,M,aspect_ratio=:equal)
+title!("Phi(x,0)")
+savefig(p6,imgdir * "phi0-n-$(M.n[1])x$(M.n[2]).png")
 
-xc = [ J.UN[1:d,:]; fill(1.0,1,size(J.X0,2))]
+
+xc = [ J.UN[1:d,:]; fill(T,1,size(J.X0,2))]
 Φ1 = vec(J.Φ(xc,Θbest) )
 p7 = viewImage2D(Φ1,M,aspect_ratio=:equal)
 title!("Phi(z,1)")
+savefig(p7,imgdir * "phi1-n-$(M.n[1])x$(M.n[2]).png")
 
 
 deltaG = J.α[3]*MFGnet.getDeltaG(J.G,J.UN)
 p8 = viewImage2D(deltaG,M,aspect_ratio=:equal)
 title!("deltaG(z)")
+savefig(p8,imgdir * "deltaG-n-$(M.n[1])x$(M.n[2]).png")
 
-p9 = viewImage2D(abs.(Φ1-deltaG),M,aspect_ratio=:equal)
-title!("Phi1 - deltaG(z)")
+resHJB = abs.(Φ1-deltaG)
+p9 = viewImage2D(resHJB,M,aspect_ratio=:equal)
+title!("|Phi1 - deltaG(z)|")
+savefig(p9,imgdir * "absDiffHJBfinal-n-$(M.n[1])x$(M.n[2]).png")
 
 
 # ###### Create new MFG for characteristics
-Xt    = sample(rho0,10)
+Xc     = sample(rho0,16)
 if d>2
-    Xt[3:d,:] .= R(0.0)
+    Xc[3:d,:] .= R(0.0)
 end
-wt     = 1/size(Xt,2) * ones(size(Xt,2)); sum(wt)
-rho0xt = rho0(Xt)
-rho1xt = rho1(Xt)
+wc     = 1/size(Xc,2) * ones(size(Xc,2))
+rho0xc = rho0(Xc)
+rho1xc = rho1(Xc)
+Fc = F0()
+Gc = Gkl(rho0,rho1,rho0xc,rho1xc,1.0)
+Jc = MeanFieldGame(Fc,Gc,Xc,rho0,wc,Φ=Φ,stepper=RK4Step(),nt=4*J.nt,α=J.α,tspan=J.tspan)
 
-Ft = F0()
-Gt = Gkl(rho0,rho1,rho0xt,rho1xt,1.0)
-Jt = MeanFieldGame(Ft,Gt,Xt,rho0,wt,Φ=Φ,stepper=stepper,nt=16,α=α)
-
-ntv = Jt.nt
-Ut = MFGnet.integrate2(Jt.stepper,MFGnet.odefun,Jt,ar([Xt;zeros(4,size(Xt,2))]),Θbest,ar([0.0 T]),ntv)
-Y0  = ar([Ut[1:d,:,end];zeros(4,size(Xt,2))])
-U0 = MFGnet.integrate2(Jt.stepper,MFGnet.odefun,Jt,Y0,Θbest,ar([T 0.0]),ntv)
-
-for j=1:size(Xt,2)
+p10 = viewImage2D(J.rho0x ,M,aspect_ratio=:equal)
+Ut = MFGnet.integrate2(Jc.stepper,MFGnet.odefun,Jc,ar([Xc;zeros(4,size(Xc,2))]),Θbest,[0.0 T],Jc.nt)
+charFwd = copy(Ut);
+Y0  = [Ut[1:d,:,end];zeros(4,size(Xc,2))]
+U0 = MFGnet.integrate2(Jc.stepper,MFGnet.odefun,Jc,Y0,Θbest,[T 0.0],Jc.nt)
+charBwd = copy(U0);
+for j=1:size(Xc,2)
     uj = Ut[1:d,j,:]
     vj = U0[1:d,j,:]
-    plot!(p1,uj[1,:],uj[2,:],legend=false,linecolor=:white,linewidth=0.4)
-    plot!(p1,vj[1,:],vj[2,:],legend=false,linecolor=:red,linewidth=0.4)
+    plot!(p10,uj[1,:],uj[2,:],legend=false,linecolor=:white,linewidth=1.5)
+    plot!(p10,vj[1,:],vj[2,:],legend=false,linecolor=:red,linewidth=1.5)
 end
-# title!("characteristics, fwd+inv")
+title!("characteristics, fwd+inv")
+savefig(p10,imgdir * "characteristics-n-$(M.n[1])x$(M.n[2]).png")
 
 
-pt = plot(p1,p2,p3,p4,p5,p6,p7,p8,p9)
-display(pt)
+U0 = MFGnet.integrate(J.stepper,MFGnet.odefun,J,ar([J.X0;zeros(4,size(J.X0,2))]),Θbest,[T 0.0],J.nt)
+detDyInv = exp.(U0[d+1,:])
+rho0z = rho0(U0[1:d,:]).*detDyInv
+p11= viewImage2D(rho0z ,M,aspect_ratio=:equal)
+title!("rho0(z).*detInv")
+savefig(p11,imgdir * "rho0z-n-$(M.n[1])x$(M.n[2]).png")
 
+res1 = rho1x - rho0z
+p4 = viewImage2D(abs.(res1),M,aspect_ratio=:equal)
+title!("| rho1(x)-rho0(z).*detInv |") # where's the determinant
+savefig(p4,imgdir * "absDiffRho1-n-$(M.n[1])x$(M.n[2]).png")
 
-
-
-## plot histories
-p1 = plot(log.(abs.(objTrain)), linewidth=3,legend=false)
-plot!(p1, log.(abs.(objVal)),linewidth=3,legend=false)
-title!("log obj")
-
-p2 = plot(log.((costLTrain)), linewidth=3,legend=false)
-plot!(p2,log.((costLVal)), linewidth=3,legend=false)
-title!("log L cost")
-
-p3 = plot(((costFTrain)), linewidth=3,legend=false)
-plot!(p3,((costFVal)), linewidth=3,legend=false)
-title!("F cost")
-
-p4 = plot(log.(abs.(costGTrain)), linewidth=3,legend=false)
-plot!(p4,log.(abs.(costGVal)), linewidth=3,legend=false)
-title!("G cost")
-
-p5 = plot(log.((costHJBTrain)), linewidth=3,legend=false)
-plot!(p5,log.((costHJBVal)), linewidth=3,legend=false)
-title!("log HJB cost")
-
-p6 = plot(log.((costHJBFinalTrain)), linewidth=3,legend=false)
-plot!(p6,log.((costHJBFinalVal)), linewidth=3,legend=false)
-title!("log HJB Final cost")
-
-pt = plot(p1,p2,p3,p4,p5,p6)
-display(pt)
+using MAT
+matwrite(imgdir  * fname * ".mat", Dict(
+    "rho0x" => rho0x,
+    "rho1x" => rho1x,
+    "rho1y" => rho1y,
+    "rho0z" => rho0z,
+    "domain" => M.domain,
+    "detDy" => detDy,
+    "detDyInv" => detDyInv,
+    "res0" => res0,
+    "res1" => res1,
+    "charFwd" => charFwd,
+    "charBwd" => charBwd,
+    "deltaG" => deltaG,
+    "n" => M.n,
+    "Phi0" => Φ0,
+    "Phi1" => Φ1,
+    "His" => res["His"]))
