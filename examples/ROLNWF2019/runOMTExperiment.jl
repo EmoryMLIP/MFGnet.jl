@@ -28,10 +28,10 @@ include("../ROLNWF2019/runOMThelpers.jl")
 
 @isdefined(saveStr)     ? saveStr=saveStr   : saveStr = "OMT-BFGS-d-"*string(d)
 
-rho1 = Gaussian(d)
+sig = ar(.3*ones(R,d))
+    rho1 = Gaussian(d,sig,zeros(R,d),R(1.0))
 Gs = Array{Gaussian{R,Vector{R}}}(undef,8)
 ang = range(0,stop=2*pi, length=length(Gs)+1)[1:end-1]
-sig = ar(.3*ones(d))
 for k=1:length(ang)
     μk = ar(4*([cos(ang[k]); sin(ang[k]);zeros(d-2)]))
     Gs[k] = Gaussian(d,sig,μk,R(1.0/length(Gs)))
