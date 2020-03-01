@@ -29,7 +29,7 @@ include("runOMThelpers.jl")
 @isdefined(saveStr)     ? saveStr=saveStr   : saveStr = "OMT-BFGS-d-"*string(d)
 
 sig = ar(.3*ones(R,d))
-    rho1 = Gaussian(d,sig,zeros(R,d),R(1.0))
+rho1 = Gaussian(d,sig,zeros(R,d),R(1.0))
 Gs = Array{Gaussian{R,Vector{R}}}(undef,8)
 ang = range(0,stop=2*pi, length=length(Gs)+1)[1:end-1]
 for k=1:length(ang)

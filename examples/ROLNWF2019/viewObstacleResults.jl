@@ -11,32 +11,36 @@ using MAT
 include("../ROLNWF2019/viewers.jl")
 include("../ROLNWF2019/runOMThelpers.jl")
 
-iter = 800
-d   = 2
+for d=[2,10,50,100]
+	for level=[1,2]
+		for iter=[100,200,300,400,500]
+			dir = pwd()
+			fname ="Obstacle-Multilevel-d-$d-level-$level-iter-$iter"
 
-dir = pwd()
-fname = "Obstacle-BFGSHighSamples-d-"*string(d)*"-iter"*string(iter)
 imgdir = dir * "/" * fname *"/"
+mkdir(imgdir)
 println("fname=$fname")
 file = fname *".jld"
 
 res  = load(file)
 settings = res["settings"]
-(m,α,nTrain,R,d,mu0,sig0,mu1,sig1,domain,nTh,m,nt,T,Qheight,sigQ,muFe,muFp) = settings
+(m,α,nTrain,R,d,mu0,sig0,mu1,sig1,domain,nTh,m,nt,T,Qheight,sigQ,muFe,muFp,Tth) = settings
 println("nTrain=$nTrain")
-
 tspan = [0.0, T]
 stepper = RK4Step()
 
 ar = x-> R.(x)
-Θopt = res["Θbest"]
+Θbest = res["Θbest"]
+println("number of model parameters: $(length(MFGnet.param2vec(Θbest)))")
 
 rho0 = Gaussian(d,sig0,mu0)
 rho1 = Gaussian(d,sig1,mu1)
 
 Q1   = Gaussian(2,sigQ,zeros(R,2),R(Qheight))
-Q(x) = vec(Q1(x[1:2,:]))
+Q    = x -> vec(Q1(x[1:2,:]))
 
+
+domain = [-3.0 3.0 -4.5 4.5]
 
 M      = getRegularMesh(domain,[128, 128])
 X0     = Matrix(getCellCenteredGrid(M)')
@@ -58,7 +62,7 @@ F   = Fcomb([F1;F2])
 G = Gkl(rho0,rho1,rho0x,rho1x,ar(1.0))
 J = MeanFieldGame(F,G,X0,rho0,w,Φ=Φ,stepper=stepper,nt=16,α=α,tspan=tspan)
 
-Jc  = J(Θopt)
+Jc  = J(Θbest)
 
 ## plots:
 Qx = Q(X0)
@@ -93,14 +97,14 @@ savefig(p5,imgdir * "det-n-$(M.n[1])x$(M.n[2]).png")
 
 
 xc = [ J.X0; fill(0.0,1,size(J.X0,2))]
-Φ0 = J.Φ(xc,Θopt)
+Φ0 = J.Φ(xc,Θbest)
 p6 = viewImage2D(Φ0, M, aspect_ratio=:equal)
 title!("Phi(x,0)")
 savefig(p6,imgdir * "phi0-n-$(M.n[1])x$(M.n[2]).png")
 
 
 xc = [ J.UN[1:d,:]; fill(1.0,1,size(J.X0,2))]
-Φ1 = vec(J.Φ(xc,Θopt) )
+Φ1 = vec(J.Φ(xc,Θbest) )
 p7 = viewImage2D(Φ1,M,aspect_ratio=:equal)
 title!("Phi(z,1)")
 savefig(p7,imgdir * "phi1-n-$(M.n[1])x$(M.n[2]).png")
@@ -132,11 +136,11 @@ Gt = Gkl(rho0,rho1,rho0xt,rho1xt,1.0)
 Jt = MeanFieldGame(Ft,Gt,Xt,rho0,wt,Φ=Φ,stepper=RK4Step(),nt=2*nt,α=α)
 
 ntv = Jt.nt
-Ut = MFGnet.integrate2(Jt.stepper,MFGnet.odefun,Jt,ar([Xt;zeros(4,size(Xt,2))]),Θopt,ar([0.0 T]),ntv)
+Ut = MFGnet.integrate2(Jt.stepper,MFGnet.odefun,Jt,ar([Xt;zeros(4,size(Xt,2))]),Θbest,ar([0.0 T]),ntv)
 charFwd = copy(Ut);
 
 Y0  = ar([Ut[1:d,:,end];zeros(4,size(Xt,2))])
-U0 = MFGnet.integrate2(Jt.stepper,MFGnet.odefun,Jt,Y0,Θopt,ar([T 0.0]),ntv)
+U0 = MFGnet.integrate2(Jt.stepper,MFGnet.odefun,Jt,Y0,Θbest,ar([T 0.0]),ntv)
 charBwd = copy(U0);
 
 p10 = viewImage2D(J.rho0x ,M,aspect_ratio=:equal)
@@ -151,7 +155,7 @@ savefig(p10,imgdir * "characteristics-n-$(M.n[1])x$(M.n[2]).png")
 ################################################################################
 ################################################################################
 
-U0 = MFGnet.integrate(J.stepper,MFGnet.odefun,J,ar([J.X0;zeros(4,size(J.X0,2))]),Θopt,[T 0.0],ntv)
+U0 = MFGnet.integrate(J.stepper,MFGnet.odefun,J,ar([J.X0;zeros(4,size(J.X0,2))]),Θbest,[T 0.0],ntv)
 detDyInv = exp.(U0[d+1,:])
 rho0z = rho0(U0[1:d,:]).*detDyInv
 p11= viewImage2D(rho0z ,M,aspect_ratio=:equal)
@@ -163,7 +167,29 @@ p4 = viewImage2D(abs.(res1),M,aspect_ratio=:equal)
 title!("| rho1(x)-rho0(z).*detInv |") # where's the determinant
 savefig(p4,imgdir * "absDiffRho1-n-$(M.n[1])x$(M.n[2]).png")
 
-matwrite(imgdir * fname * ".mat", Dict(
+X1,X2 = getFaceGrids(M)
+XC = getCellCenteredGrid(M)
+tt = range(0,stop=T,length=64)
+X1t = t -> [Matrix(X1'); zeros(d-2,size(X1,1)); fill(t,1,size(X1,1))]
+X2t = t -> [Matrix(X2'); zeros(d-2,size(X2,1)); fill(t,1,size(X2,1))]
+XCt = t -> [Matrix(XC'); zeros(d-2,size(XC,1)); fill(t,1,size(XC,1))]
+V1 = zeros(M.n[1]+1,M.n[2],length(tt))
+V2 = zeros(M.n[1],M.n[2]+1,length(tt))
+ΦOpt  = zeros(M.n[1],M.n[2],length(tt))
+for k=1:length(tt)
+    tk = tt[k]
+    println("tk=$tk")
+    Phi = J.Φ(X1t(tk),Θbest) # run fwd prop to populate N.tmp
+    gradPhi = MFGnet.getGradPotential(J.Φ,X1t(tk),Θbest)
+    V1[:,:,k] = reshape(-(1/J.α[1])*gradPhi[1,:],M.n[1]+1,M.n[2])
+    Phi = J.Φ(X2t(tk),Θbest) # run fwd prop to populate N.tmp
+    gradPhi = MFGnet.getGradPotential(J.Φ,X2t(tk),Θbest)
+    V2[:,:,k] = reshape(-(1/J.α[1])*gradPhi[2,:],M.n[1],M.n[2]+1)
+
+	ΦOpt[:,:,k] = reshape(J.Φ(XCt(tk),Θbest),M.n[1],M.n[2])
+end
+
+matwrite( fname * ".mat", Dict(
 	"Qx" => Qx,
     "rho0x" => rho0x,
     "rho1x" => rho1x,
@@ -180,4 +206,11 @@ matwrite(imgdir * fname * ".mat", Dict(
     "n" => M.n,
     "Phi0" => Φ0,
     "Phi1" => Φ1,
+	"V1" => V1,
+	"V2" => V2,
+	"PhiOpt" => ΦOpt,
     "His" => res["His"]))
+end
+
+end
+end
