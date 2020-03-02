@@ -2,6 +2,7 @@
 
 This folder contains the scripts and codes used to perform the experiments described in the paper
 
+```
   @article{ROLNWF2019,
     title = {A Machine Learning Framework for Solving High-Dimensional Mean Field Game and Mean Field Control Problems},
     year = {2019},
@@ -9,6 +10,7 @@ This folder contains the scripts and codes used to perform the experiments descr
     author = {L. Ruthotto, S. Osher, W. Li, L. Nurbekyan, S. Wu Fung},
     pages = {15 pages}
   }
+```
 
 ## Julia experiments
 
