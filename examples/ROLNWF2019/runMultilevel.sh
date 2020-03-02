@@ -7,10 +7,10 @@ julia -e "maxIter=[500;500]; d=2; nTrain=[32^2;48^2]; nVal=32^2; nt=2; saveIter=
 # no HJB
 julia -e "maxIter=[500;500]; d=2; nTrain=[32^2;48^2]; nVal=32^2; nt=2; saveIter=100; alph=[2.0;1.0;5.0;0.0;0.0]; saveStr=\"OMT-Multilevel-noHJB-d-2\"; include(\"runOMTExperimentMultilevel.jl\")" | tee OMT-Multilevel-noHJB-nt-2-d-2.txt
 
-# no HJB more time steps
-julia -e "maxIter=[500;500]; d=2; nTrain=[32^2;48^2]; nVal=32^2; nt=8; saveIter=100; alph=[2.0;1.0;5.0;0.0;0.0]; saveStr=\"OMT-Multilevel-noHJB-d-2\"; include(\"runOMTExperimentMultilevel.jl\")" | tee OMT-Multilevel-noHJB-nt-8-d-2.txt
+# no HJB nt=2 time steps
+julia -e "maxIter=[500;500]; d=2; nTrain=[32^2;48^2]; nVal=32^2; nt=8; saveIter=100; alph=[2.0;1.0;5.0;0.0;0.0]; saveStr=\"OMT-Multilevel-noHJB-nt-8-d-2\"; include(\"runOMTExperimentMultilevel.jl\")" | tee OMT-Multilevel-noHJB-nt-8-d-2.txt
 
-# no HJB more time steps
+# ADAM
 julia -e "maxIter=[5000;5000]; d=2; nTrain=[32^2;48^2]; nVal=32^2; nt=2; saveIter=100; alph=[2.0;1.0;5.0;3.0;3.0]; saveStr=\"OMT-Multilevel-ADAM-d-2\"; include(\"runOMTExperimentMultilevel.jl\")" | tee OMT-Multilevel-ADAM-d-2.txt
 
 # 10 dimensions

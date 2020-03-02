@@ -3,7 +3,7 @@ uuid = "97b447e0-6553-5d69-bee2-d3681083803f"
 license = "MIT"
 desc = "A Machine Learning Framework for solving Mean Field Games and Control Problems"
 authors = ["Lars Ruthotto <lruthotto@emory.edu>", "Samy Wu Fung <swufung@math.ucla.edu>"]
-version = "0.0.3"
+version = "0.1.0"
 
 [deps]
 Flux = "587475ba-b771-5e3f-ad9e-33799f191a9c"
@@ -17,8 +17,8 @@ jInv = "3dacf901-f8cd-5544-86ed-7a705f85c244"
 [compat]
 julia = "1.2"
 
-[targets]
-test = ["Test"]
-
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
