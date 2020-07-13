@@ -11,7 +11,7 @@ where K,b are trainable weights
 struct SingleLayer
 end
 
-mσ(x::AbstractArray{R}) where R<:Real = log.(exp.(x)+exp.(-x))
+mσ(x::AbstractArray{R}) where R<:Real = abs.(x)+log.(R(1)+exp.(-R(2)*abs.(x)))
 mdσ(x::AbstractArray{R}) where R<:Real = tanh.(x)
 md2σ(x::AbstractArray{R}) where R<:Real = one(eltype(x)) .- tanh.(x).^2
 
