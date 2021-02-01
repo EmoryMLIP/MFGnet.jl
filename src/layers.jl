@@ -95,7 +95,6 @@ function getTrace(H::AbstractArray{R}) where R <: Real
 end
 
 getQ(XT::AbstractArray{R}) where R<: Real = Array(one(R)*I,size(XT,1),size(XT,1)-1)
-getQ(XT::TrackedArray) = getQ(XT.data)
 
 function getQ(Φ::PotentialNN,XT::AbstractArray{R}) where R<: Real
     d = size(XT,1)

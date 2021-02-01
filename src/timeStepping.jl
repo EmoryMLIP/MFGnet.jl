@@ -56,13 +56,8 @@ function integrate2(stepper,odefun,J,U0::AbstractArray{R},Θ,tspan::AbstractArra
     X0  = (U0[1:d,:])
     for k=1:N
         temp = step(stepper,odefun, J, UArray[:,:,k], Θ , tk, tk+h)
-
-        if typeof(temp) <: TrackedArray
-            UArray[:,:,k+1] = temp.data
-        else
-            UArray[:,:,k+1] = temp
-        end
-        tk += h
+        UArray[:,:,k+1] = temp
+		tk += h
     end
     return UArray
 end

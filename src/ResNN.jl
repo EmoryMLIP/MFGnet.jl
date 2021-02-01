@@ -8,11 +8,12 @@ Residual Neural Network structure
 mutable struct ResNN{R<:Real}
     layer::SingleLayer   # description of layer
     ts::Vector{R}      # time points
-    tmp::Array{AbstractArray{R},2}     # storage for intermediates
+    tmpS    # storage for intermediates
+    tmpZ    # storage for intermediates
 end
 
 ResNN(layer=SingleLayer(),ts::Vector{R}=[0.0 0.5 1.0]) where R<:Real =
-        ResNN(layer,ts,Array{AbstractArray{R}}(undef,length(ts)-1,2))
+        ResNN(layer,ts,(),())
 
 nLayers(N::ResNN) = length(N.ts)-1
 
@@ -21,9 +22,10 @@ evaluate layer for current weights Θ=(K,b)
 """
 function (N::ResNN{R})(S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
+	N.tmpS = ()
     for k=1:nLayers(N)
-        N.tmp[k,1] = S
-        hk = N.ts[k+1]-N.ts[k]
+		N.tmpS = append(N.tmpS, S)
+        hk = R(N.ts[k+1]-N.ts[k])
         Θk = linInter1D(N.ts[k],T,Θ)
         S += hk .* N.layer(S,Θk)
     end
@@ -35,27 +37,28 @@ compute matvec J_S N(S,Θ)'*Z
 """
 function getJSTmv(N::ResNN{R},Z::AbstractVector{R},S::AbstractArray{R},Θ)  where R <: Real
     T = maximum(N.ts)
-    hk = N.ts[end]-N.ts[end-1]
+    hk = R(N.ts[end]-N.ts[end-1])
     Θk = linInter1D(N.ts[end-1],T,Θ)
-    N.tmp[end,2] = Z
-    Z = Z .+ hk .* getJSTmv(N.layer,Z,N.tmp[end,1],Θk)
-
+    N.tmpZ = append(Z,1)
+    Z = Z .+ hk .* getJSTmv(N.layer,Z,N.tmpS[end],Θk)
+	
     for k=nLayers(N)-1:-1:1
-        N.tmp[k,2] = Z
+		N.tmpZ = append(Z,N.tmpZ)
         hk = N.ts[k+1]-N.ts[k]
         Θk = linInter1D(N.ts[k],T,Θ)
-        Z +=  hk .* getJSTmv(N.layer,Z,N.tmp[k,1],Θk)
+        Z +=  hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)
     end
     return Z
 end
 
 function getJSTmv(N::ResNN{R},Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
+	N.tmpZ = (1)
     for k=nLayers(N):-1:1
-        N.tmp[k,2] = Z
+		N.tmpZ = append(Z,N.tmpZ)
         hk = N.ts[k+1]-N.ts[k]
         Θk = linInter1D(N.ts[k],T,Θ)
-        Z +=  hk .* getJSTmv(N.layer,Z,N.tmp[k,1],Θk)
+        Z +=  hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)
     end
     return Z
 end
@@ -91,17 +94,17 @@ function getJSJSTmv(N::ResNN{R},dZ::AbstractVector{R},S::AbstractArray{R},Θ) wh
 
     Θk = linInter1D(N.ts[end-1],T,Θ)
     hk = N.ts[end]-N.ts[end-1]
-    d2Z =  hk .* getJSJSTmv(N.layer,dZ,N.tmp[end,1],Θk)
-    dZ  = dZ .+ hk .* getJSTmv(N.layer,dZ,N.tmp[end,1],Θk)
+    d2Z =  hk .* getJSJSTmv(N.layer,dZ,N.tmpS[end],Θk)
+    dZ  = dZ .+ hk .* getJSTmv(N.layer,dZ,N.tmpS[end],Θk)
 
     for k=nLayers(N)-1:-1:1
         Θk = linInter1D(N.ts[k],T,Θ)
         hk = N.ts[k+1]-N.ts[k]
-        d2Z1 =  hk .* getJSJSTmv(N.layer,dZ,N.tmp[k,1],Θk)
-        d2Z2 = getJSTd2ZJSmv(N,d2Z, hk, N.tmp[k,1],Θk)
+        d2Z1 =  hk .* getJSJSTmv(N.layer,dZ,N.tmpS[k],Θk)
+        d2Z2 = getJSTd2ZJSmv(N,d2Z, hk, N.tmpS[k],Θk)
         d2Z = d2Z1 + d2Z2
         if k>1
-            dZ  += hk .* getJSTmv(N.layer,dZ,N.tmp[k,1],Θk)
+            dZ  += hk .* getJSTmv(N.layer,dZ,N.tmpS[k],Θk)
         end
     end
     return d2Z
@@ -112,11 +115,11 @@ function getJSJSTmv(N::ResNN{R},dZ::AbstractArray{R},d2Z::AbstractArray{R},S::Ab
     for k=nLayers(N):-1:1
         Θk = linInter1D(N.ts[k],T,Θ)
         hk = N.ts[k+1]-N.ts[k]
-        d2Z1 =  hk .* getJSJSTmv(N.layer,dZ,N.tmp[k,1],Θk)
-        d2Z2 = getJSTd2ZJSmv(N,d2Z, hk, N.tmp[k,1],Θk)
+        d2Z1 =  hk .* getJSJSTmv(N.layer,dZ,N.tmpS[k],Θk)
+        d2Z2 = getJSTd2ZJSmv(N,d2Z, hk, N.tmpS[k],Θk)
         d2Z = d2Z1 + d2Z2
         if k>1
-            dZ  += hk .* getJSTmv(N.layer,dZ,N.tmp[k,1],Θk)
+            dZ  += hk .* getJSTmv(N.layer,dZ,N.tmpS[k],Θk)
         end
     end
     return d2Z
@@ -128,17 +131,17 @@ function getGradAndHessian(N::ResNN{R},dZ::AbstractArray{R},S::AbstractArray{R},
 
     Θk = linInter1D(N.ts[end-1],T,Θ)
     hk = N.ts[end]-N.ts[end-1]
-    N.tmp[end,2] = dZ
-    ddZ, d2Z = getGradAndHessian(N.layer,dZ,N.tmp[end,1],Θk)
+    N.tmpZ = append(dZ,1)
+    ddZ, d2Z = getGradAndHessian(N.layer,dZ,N.tmpS[end],Θk)
     dZ  = dZ .+ hk .* ddZ
     d2Z = hk.*d2Z
 
     for k=nLayers(N)-1:-1:1
-        N.tmp[k,2] = dZ
+		N.tmpZ = append(dZ,N.tmpZ)
         Θk = linInter1D(N.ts[k],T,Θ)
         hk = N.ts[k+1]-N.ts[k]
-        ddZ, d2Z1 =  getGradAndHessian(N.layer,dZ,N.tmp[k,1],Θk)
-        d2Z2 = getJSTd2ZJSmv(N,d2Z, hk, N.tmp[k,1],Θk)
+        ddZ, d2Z1 =  getGradAndHessian(N.layer,dZ,N.tmpS[k],Θk)
+        d2Z2 = getJSTd2ZJSmv(N,d2Z, hk, N.tmpS[k],Θk)
         d2Z = hk .* d2Z1 + d2Z2
         dZ  += hk .* ddZ
     end
@@ -151,8 +154,8 @@ function getGradAndHessian(N::ResNN{R},dZ::AbstractArray{R},d2Z::AbstractArray{R
         N.tmp[k,2] = dZ
         Θk = linInter1D(N.ts[k],T,Θ)
         hk = N.ts[k+1]-N.ts[k]
-        ddZ,d2Z1 =   getGradAndHessian(N.layer,dZ,N.tmp[k,1],Θk)
-        d2Z2 = getJSTd2ZJSmv(N,d2Z, hk, N.tmp[k,1],Θk)
+        ddZ,d2Z1 =   getGradAndHessian(N.layer,dZ,N.tmpS[k],Θk)
+        d2Z2 = getJSTd2ZJSmv(N,d2Z, hk, N.tmpS[k],Θk)
         d2Z = hk .*d2Z1 + d2Z2
         dZ  += hk .* ddZ
     end
@@ -165,9 +168,9 @@ function getTraceHess(N::ResNN,S::AbstractArray{R},Θ) where R <: Real
     Θk = linInter1D(N.ts[1],T,Θ)
     hk = N.ts[2]-N.ts[1]
 
-    trH1,Jac = getTraceHessAndGrad(N.layer,N.tmp[1,2],N.tmp[1,1],Θk)
+    trH1,Jac = getTraceHessAndGrad(N.layer,N.tmpZ[1],N.tmpS[1],Θk)
     Jac =  Matrix(R(1.0)*I,size(Jac,1),size(Jac,2)) .+ hk .* Jac
-    trH2, Jac = getTraceHessAndGrad(N,[],Jac,N.tmp[2,1],Θ,2)
+    trH2, Jac = getTraceHessAndGrad(N,[],Jac,N.tmpS[2],Θ,2)
     return hk*trH1 + trH2
 end
 
@@ -177,12 +180,12 @@ function getTraceHess(N::ResNN,w,Jac::AbstractArray{R},S::AbstractArray{R},Θ,k:
     Θk = linInter1D(N.ts[k],T,Θ)
     hk = N.ts[k+1]-N.ts[k]
     if k < nLayers(N)
-        trH1,Jt = getTraceHessAndGrad(N.layer,N.tmp[k,2],Jac,N.tmp[k,1],Θk)
+        trH1,Jt = getTraceHessAndGrad(N.layer,N.tmpZ[k],Jac,N.tmpS[k],Θk)
         Jac = Jac + hk .* Jt
-        trH2, Jac = getTraceHessAndGrad(N,[],Jac,N.tmp[k+1,1],Θ,k+1)
+        trH2, Jac = getTraceHessAndGrad(N,[],Jac,N.tmpS[k+1],Θ,k+1)
         return hk .* trH1 + trH2, Jac
     else
-        trH1 = getTraceHess(N.layer,N.tmp[k,2],Jac,N.tmp[k,1],Θk)
+        trH1 = getTraceHess(N.layer,N.tmpZ[k],Jac,N.tmpS[k],Θk)
         return hk .* trH1
     end
 end
@@ -192,9 +195,9 @@ function getTraceHessAndGrad(N::ResNN,S::AbstractArray{R},Θ) where R <: Real
     Θk = linInter1D(N.ts[1],T,Θ)
     hk = N.ts[2]-N.ts[1]
 
-    trH1,Jac = getTraceHessAndGrad(N.layer,N.tmp[1,2],N.tmp[1,1],Θk)
+    trH1,Jac = getTraceHessAndGrad(N.layer,N.tmpZ[1],N.tmpS[1],Θk)
     Jac =  Matrix(R(1.0)*I,size(Jac,1),size(Jac,2)) .+ hk .* Jac
-    trH2, Jac = getTraceHessAndGrad(N,[],Jac,N.tmp[2,1],Θ,2)
+    trH2, Jac = getTraceHessAndGrad(N,[],Jac,N.tmpS[2],Θ,2)
     return hk*trH1 + trH2, Jac
 end
 
@@ -203,10 +206,10 @@ function getTraceHessAndGrad(N::ResNN,w,Jac::AbstractArray{R},S::AbstractArray{R
     T  = maximum(N.ts)
     Θk = linInter1D(N.ts[k],T,Θ)
     hk = N.ts[k+1]-N.ts[k]
-    trH1,Jt = getTraceHessAndGrad(N.layer,N.tmp[k,2],Jac,N.tmp[k,1],Θk)
+    trH1,Jt = getTraceHessAndGrad(N.layer,N.tmpZ[k],Jac,N.tmpS[k],Θk)
     Jac = Jac + hk .* Jt
     if k < nLayers(N)
-        trH2, Jac = getTraceHessAndGrad(N,[],Jac,N.tmp[k+1,1],Θ,k+1)
+        trH2, Jac = getTraceHessAndGrad(N,[],Jac,N.tmpS[k+1],Θ,k+1)
         return hk .* trH1 + trH2, Jac
     else
         return hk .* trH1, Jac

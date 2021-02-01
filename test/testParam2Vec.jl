@@ -1,4 +1,4 @@
-using Flux, Zygote
+using Flux
 using Revise
 using MFGnet
 using Test
@@ -16,13 +16,13 @@ nTh = 2
 (w0,A0,c0) = (ones(R,m)/R(sqrt(m)),zeros(R,d+1,d+1),zeros(R,d+1))
 Θ = (w0,ΘN,A0,c0)
 
-As = param(copy(A0))
-K1s = param(copy(K1))
-K2s = param(copy(K2))
-b1s = param(copy(b1))
-b2s = param(copy(b2))
-ws = param(copy(w0))
-cs = param(copy(c0))
+As  = copy(A0)
+K1s = copy(K1)
+K2s = copy(K2)
+b1s = copy(b1)
+b2s = copy(b2)
+ws  = copy(w0)
+cs  = copy(c0)
 
 
 parms = (ws,((K1s,b1s),(K2s,b2s)),As,cs)

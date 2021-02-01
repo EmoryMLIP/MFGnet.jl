@@ -1,8 +1,5 @@
 
-function vec2param!(Θvec,Θparam::TrackedArray)
-    Θparam.data .= reshape(Θvec, size(Θparam))
-    return Θparam
-end
+
 function vec2param!(Θvec,Θparam::AbstractArray)
     Θparam .= reshape(Θvec, size(Θparam))
     return Θparam
@@ -28,7 +25,6 @@ function lengthvec(Θparm::Tuple)
     return cnt
 end
 
-getParmsType(Θ::TrackedArray) = typeof(Θ[1].data)
 getParmsType(Θ::AbstractArray) = typeof(Θ[1])
 getParmsType(Θ::Tuple)        = getParmsType(Θ[1])
 
@@ -39,7 +35,6 @@ function param2vec(Θparm::Tuple)
     return param2vec!(Θparm,Θvec)
 end
 
-param2vec(Θparm::TrackedArray) = vec(Θparm.data)
 param2vec(Θparm::AbstractArray) = vec(Θparm)
 function param2vec!(Θparm,Θvec)
     cnt = 0

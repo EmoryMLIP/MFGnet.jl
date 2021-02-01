@@ -20,7 +20,8 @@ evaluate layer for current weights Θ=(K,b)
 """
 function (N::SingleLayer)(S::AbstractArray{R},Θ::Tuple{AbstractArray{R,2},AbstractArray{R,1}}) where R <: Real
     (K,b) = Θ
-    return mσ(K*S .+ b)
+    Z = K*S .+ b
+    return log.(exp.(Z)+exp.(-Z))
 end
 
 """

@@ -1,5 +1,20 @@
 export evalObj, evalObjAndGrad
 
+function append(A::Tuple,B)
+	return (A...,B)
+end
+
+function append(A,B)
+	return (A,B)
+end
+
+function append(A,B::Tuple)
+	return(A,B...)
+end
+
+function append(A::Tuple,B::Tuple)
+	return (A..., B...)
+end
 
 function myMap(f::Function,Θ::AbstractArray)
     return f(Θ)
@@ -17,22 +32,28 @@ end
 function evalObjAndGrad(J,Θ::Vector,parms,ps)
     # put theta into vectors
     parms = vec2param!(Θ,parms)
-    Jc,back = Zygote.Tracker.forward(()->J(parms), ps)
-    gc = back(1)
-
+	# Jc = J(parms)
+    # back = gradient(()->J(parms), ps)
+    Jc,back = Zygote.pullback(() -> J(parms), ps)
+	gc = back(Zygote.sensitivity(Jc))
+	
     dJ = Θ .* 0.0
     cnt = 0;
     for p in ps
-        gp = vec(gc[p].data)
-        dJ[cnt+1:cnt+length(gp)] = gp
-        cnt +=length(gp)
+		if gc[p]!=nothing 
+        	gp = vec(gc[p])
+			dJ[cnt+1:cnt+length(gp)] = gp
+			cnt +=length(gp)
+		else
+			println("grad was nothing")
+		end
     end
-    return Jc.data,dJ
+    return Jc,dJ
 end
 
 function evalObj(J,Θ::Vector,parms,ps)
     # put theta into vectors
     parms = vec2param!(Θ,parms)
     Jc = J(parms)
-    return Jc.data
+    return Jc
 end

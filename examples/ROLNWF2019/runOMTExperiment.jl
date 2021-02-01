@@ -1,4 +1,4 @@
-using Flux, Zygote
+using Flux
 using LinearAlgebra
 using jInv.Mesh
 using Printf
@@ -6,6 +6,8 @@ using Plots
 using JLD
 using Revise
 using MFGnet
+using Zygote
+# using Zygote.Params
 include("viewers.jl")
 include("runOMThelpers.jl")
 
@@ -43,7 +45,7 @@ rho0 = GaussianMixture(Gs)
 ################################################################################
 # setup samples
 domain = 5.0*[-1 1 -1 1];
-# M      = getRegularMesh(domain,[sqrt(nTrain),sqrt(nTrain)])
+M      = getRegularMesh(domain,[sqrt(nTrain),sqrt(nTrain)])
 # X0val     = Matrix(getCellCenteredGrid(M)')
 # X0val   = ar([X0val; zeros(d-2,size(X0val,2))]); nVal = size(X0val,2)
 # rho0xVal = rho0(X0val)
@@ -87,8 +89,8 @@ J = MeanFieldGame(F,G,X0,rho0,w,Φ=Φ,stepper=stepper,nt=nt,α=α,tspan=tspan)
 
 Θ = (w0,(ΘN),A0,b0,z0)
 
-parms = MFGnet.myMap(x->param(x),Θ)
-ps = Flux.params(parms)
+parms = MFGnet.myMap(x->x,Θ)
+ps = params(parms)
 
 println("\n\n ---------- BFGS OMT Driver -------------\n\n")
 println("results stored in: $(pwd()*"/"*saveStr).jld")
@@ -108,14 +110,14 @@ cb = function(J,Jv,iter,His,parms,doPlots=true)
     Jvc = Jv(parms)
 
     if Jvc < bestLoss
-        bestLoss = Jvc.data
+        bestLoss = Jvc
         # println("loss:", bestLoss)
         Θtemp = copy(MFGnet.param2vec(parms))
         Θbest = MFGnet.vec2param!(Θtemp,Θbest)
         # println("Θopt:", Θopt[1][1:10])
     end
 
-    Hisk = [J.cs[1].data J.cs[2].data J.cs[3].data J.cs[4].data J.cs[5].data Jv.cs[1].data Jv.cs[2].data Jv.cs[3].data Jv.cs[4].data Jv.cs[5].data]
+    Hisk = [J.cs[1] J.cs[2] J.cs[3] J.cs[4] J.cs[5] Jv.cs[1] Jv.cs[2] Jv.cs[3] Jv.cs[4] Jv.cs[5]]
     His[iter,:] = Hisk
 
     if iter==1
@@ -152,8 +154,8 @@ cb = function(J,Jv,iter,His,parms,doPlots=true)
         title!("rho0(x)")
         p2= viewImage2D(Jv.G.rho1x,M,aspect_ratio=:equal)
         title!("rho1(x)")
-        detDy = exp.(Jv.UN[d+1,:]).data
-        rho1y = (Jv.G.rho1(Jv.UN[1:d,:]).*detDy).data
+        detDy = exp.(Jv.UN[d+1,:])
+        rho1y = (Jv.G.rho1(Jv.UN[1:d,:]).*detDy)
         p3= viewImage2D(rho1y ,M,aspect_ratio=:equal,clims=(minimum(Jv.rho0x),maximum(Jv.rho0x)))
         # p3= viewImage2D(rho1y ,M,aspect_ratio=:equal)
         title!("rho1(y).*det")
@@ -166,7 +168,7 @@ cb = function(J,Jv,iter,His,parms,doPlots=true)
         title!("det")
 
         xc = [ Jv.X0; fill(0.0,1,size(Jv.X0,2))]
-        Φ0 = Jv.Φ(xc,θc).data
+        Φ0 = Jv.Φ(xc,θc)
         p6 = viewImage2D(Φ0,M,aspect_ratio=:equal)
         title!("Phi(x,0)")
 
@@ -175,13 +177,13 @@ cb = function(J,Jv,iter,His,parms,doPlots=true)
         # p6 = viewImage2D(Q(Jv.X0), M, aspect_ratio=:equal)
         # title!("Potential Q(x)")
 
-        xc = ar([ Jv.UN[1:d,:].data; fill(1.0,1,size(Jv.X0,2))])
-        Φ1 = vec(Jv.Φ(xc,θc).data)
+        xc = ar([ Jv.UN[1:d,:]; fill(1.0,1,size(Jv.X0,2))])
+        Φ1 = vec(Jv.Φ(xc,θc))
         p7 = viewImage2D(Φ1,M,aspect_ratio=:equal)
         title!("Phi(z,1)")
 
 
-        deltaG = Jv.α[3]*MFGnet.getDeltaG(Jv.G,Jv.UN).data
+        deltaG = Jv.α[3]*MFGnet.getDeltaG(Jv.G,Jv.UN)
         p8 = viewImage2D(deltaG,M,aspect_ratio=:equal)
         title!("deltaG(z)")
         p9 = viewImage2D(log10.(abs.(Φ1-deltaG)),M,aspect_ratio=:equal)
@@ -215,7 +217,7 @@ cb = function(J,Jv,iter,His,parms,doPlots=true)
 end
 
 His = zeros(maxIter,10)
-cbBFGS = (iter)-> cb(J,Jv,iter,His,parms,false)
+cbBFGS = (iter)-> cb(J,Jv,iter,His,parms,true)
 # cbBFGS(1)
 
 if optim==:bfgs
@@ -241,7 +243,7 @@ else
             J.rho0x = J.rho0(Xt)
         end
 
-        Jc,back = Zygote.Tracker.forward(() -> J(parms), ps)
+        Jc,back = Zygote.pullback(() -> J(parms), ps)
         grads = back(1)
         ng = 0.0
         for p in ps

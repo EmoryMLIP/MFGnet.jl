@@ -9,6 +9,7 @@ using MFGnet
 include("viewers.jl")
 include("runOMThelpers.jl")
 
+error("LR")
 # set default experimental parameters
 @isdefined(R)  ? R = R : R = Float64                                  # element type. Use Float32 or Float64
 @isdefined(d)  ? d = d : d = 2                                        # dimension of problem
@@ -24,7 +25,7 @@ include("runOMThelpers.jl")
 @isdefined(sampleFreq)  ? sampleFreq = sampleFreq : sampleFreq = 25   # sample frequency
 @isdefined(saveIter)    ? saveIter = saveIter     : saveIter   = 25   # iteration to save weights
 @isdefined(maxIter)     ? maxIter  = maxIter      : maxIter = 200     # max number of iters
-@isdefined(optim)       ? optim  = optim        : optim = :bfgs       # optimization algorithm
+@isdefined(optim)       ? optim  = optim        : optim = :adam       # optimization algorithm
 @isdefined(sigQ)        ? sigQ = sigQ           : sigQ = R.([1.0; 0.5]) # variance of obstacle Gaussian
 @isdefined(Qheight)     ? Qheight = Qheight     : Qheight = 50.0 # height/mass of obstacle Gaussian
 @isdefined(muFp)        ? muFp = muFp           : muFp = 1.0     # penalty for F preference
@@ -106,7 +107,7 @@ J = MeanFieldGame(F,G,X0,rho0,w,Φ=Φ,stepper=stepper,nt=nt,α=α,tspan=tspan)
 
 Θ = (w0,(ΘN),A0,b0,z0)
 
-parms = MFGnet.myMap(x->param(x),Θ)
+parms = MFGnet.myMap(x->x,Θ)
 ps = Flux.params(parms)
 
 println("\n\n ---------- BFGS Obstacle Driver -------------\n\n")
@@ -267,15 +268,14 @@ else
     runtime = @elapsed for k=1:maxIter
         if mod(k,sampleFreq)==0
             Xt    = sample(J.rho0,nTrain)
-            w     = (1/nTrain) * ones(R,nTrain)
             J.X0  = Xt;
-            J.w   = w;
+            J.w   = (1/nTrain) * ones(R,nTrain);
             J.G.rho0x = J.G.rho0(Xt)
             J.G.rho1x = J.G.rho1(Xt)
             J.rho0x = J.rho0(Xt)
         end
 
-        Jc,back = Zygote.Tracker.forward(() -> J(parms), ps)
+        Jc,back = Zygote.pullback(() -> J(parms), ps)
         grads = back(1)
         ng = 0.0
         for p in ps

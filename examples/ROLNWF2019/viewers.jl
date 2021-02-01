@@ -18,9 +18,7 @@ function viewImage2D(I::Array,M::AbstractTensorMesh;kwargs...)
     return ph
 end
 
-viewImage2D(I::TrackedArray,M::AbstractTensorMesh;kwargs...) = viewImage2D(I.data,M::AbstractTensorMesh;kwargs...)
 
-montageArray(I::TrackedArray;kwargs...) = montageArray(I.data;kwargs...)
 
 function montageArray(Img::Array{R};ncol=Int(ceil(sqrt(size(Img,3)))),kwargs...) where R <: Real
     (m1,m2,m3) = size(Img)
