@@ -22,10 +22,10 @@ function odefun(J,U::AbstractArray{R},Θ,t::R) where R <: Real
     trH = getTraceHess(J.Φ,XT,Θ)
     dx = -(1/J.α[1])*gradPhi[1:d,:]
     dl = -(1/J.α[1])*trH
-    dv = sum(dx.^2,dims=1)
+    dv = R(0.5).*sum(dx.^2,dims=1)
     df = reshape(J.F(U,t),1,nex)
     hj = abs.(-reshape(gradPhi[end,:],1,:) -
                 reshape(J.α[2].*getDeltaF(J.F,U,t),1,:) +
-                R(0.5*J.α[1]) .* dv)
+                J.α[1] .* dv)
     return [dx;reshape(dl,1,nex);dv;df;hj]
 end

@@ -4,7 +4,6 @@ using jInv.Mesh
 using Printf
 using Plots
 using JLD
-using Revise
 using MFGnet
 using Zygote
 # using Zygote.Params
@@ -17,21 +16,21 @@ include("runOMThelpers.jl")
 @isdefined(ar) ? ar = ar : ar = x-> R.(x)                             # function to change element type of arrays  and device (e.g., to cuArray)
 @isdefined(m)           ? m=m               : m=16                    # width of network
 @isdefined(nTh)         ? nTh=nTh           : nTh=2                   # number of nodes in ResNet discretization
-@isdefined(nTrain)      ? nTrain=nTrain     : nTrain=64^2             # number of training samples
-@isdefined(nVal)        ? nVal=nVal         : nVal=minimum([64^2,nTrain]) # number of validation samples
-@isdefined(nt)          ? nt=nt             : nt=2                    # number of time steps for characteristics
+@isdefined(nTrain)      ? nTrain=nTrain     : nTrain=[32^2 64^2 128^2]    # number of training samples
+@isdefined(nVal)        ? nVal=nVal         : nVal=minimum([32^2,nTrain[end]]) # number of validation samples
+@isdefined(nt)          ? nt=nt             : nt=2                   # number of time steps for characteristics
 @isdefined(stepper)     ? stepper=stepper   : stepper=RK4Step()       # time stepping for characteristics
 @isdefined(T)           ? T=T               : T=1.0                   # final time for dynamical OT
 @isdefined(alph)        ? α=alph             : α=[1.0;1.0;5.0;1.0;5.0] # weights for objective
 @isdefined(sampleFreq)  ? sampleFreq = sampleFreq : sampleFreq = 25   # sample frequency
 @isdefined(saveIter)    ? saveIter = saveIter     : saveIter   = 25   # iteration to save weights
-@isdefined(maxIter)     ? maxIter  = maxIter      : maxIter = 200     # max number of iters
+@isdefined(maxIter)     ? maxIter  = maxIter      : maxIter = [200 200 200]     # max number of iters
 @isdefined(optim)       ? optim  = optim      : optim = :bfgs     # max number of iters
 
-@isdefined(saveStr)     ? saveStr=saveStr   : saveStr = "OMT-BFGS-d-"*string(d)
+@isdefined(saveStr)     ? saveStr=saveStr   : saveStr = "OMT-Multilevel-d-"*string(d)
 
 sig = ar(.3*ones(R,d))
-    rho1 = Gaussian(d,sig,zeros(R,d),R(1.0))
+rho1 = Gaussian(d,sig,zeros(R,d),R(1.0))
 Gs = Array{Gaussian{R,Vector{R}}}(undef,8)
 ang = range(0,stop=2*pi, length=length(Gs)+1)[1:end-1]
 for k=1:length(ang)
@@ -69,12 +68,6 @@ end
 ################################################################################
 Φ = getPotentialResNet(nTh,1.0,nTh,R)
 (w0,ΘN,A0,b0,z0) = initializeWeights(d,m,nTh,ar)
-X0    = sample(rho0,nTrain)
-w     = ar(1/nTrain * ones(nTrain))
-println("sum(w)=$(sum(w))")
-if norm(sum(w) - R(1)) > 0.1
-    error("Double check the weights in training loss.")
-end
 
 α = R.(α)
 tspan = R.([0.0, T])
@@ -83,26 +76,17 @@ Fv = F0()
 Gv   = Gkl(rho0,rho1,rho0(X0val),rho1(X0val),R.(1.0))
 Jv  = MeanFieldGame(Fv,Gv,X0val,rho0,wVal,Φ=Φ,stepper=stepper,nt=nt,α=α,tspan=tspan)
 
-F = F0()
-G = Gkl(rho0,rho1,rho0(X0),rho1(X0),ar(1.0))
-J = MeanFieldGame(F,G,X0,rho0,w,Φ=Φ,stepper=stepper,nt=nt,α=α,tspan=tspan)
-
 Θ = (w0,(ΘN),A0,b0,z0)
 
 parms = MFGnet.myMap(x->x,Θ)
 ps = params(parms)
 
-println("\n\n ---------- BFGS OMT Driver -------------\n\n")
-println("results stored in: $(pwd()*"/"*saveStr).jld")
-println("sampleFreq = $(sampleFreq), α = $(α), nTh = $(nTh), m = $(m), nt = $(J.nt)")
-println("DIMENSION = $(d), nTrain = $(nTrain), nVal = $(nVal), saveIter = $(saveIter), maxIter = $(maxIter)\n\n")
-println("optim: $optim")
 
 global bestLoss = Inf
 global Θtemp = initializeWeights(d,m,nTh,ar)
 global Θbest = initializeWeights(d,m,nTh,ar)
 
-cb = function(J,Jv,iter,His,parms,doPlots=true)
+cb = function(J,Jv,level,iter,His,parms,doPlots=true)
 
     global bestLoss,  Θtemp,  Θbest
 
@@ -133,17 +117,25 @@ cb = function(J,Jv,iter,His,parms,doPlots=true)
     end
     println(str)
 
+    # if level>1 && iter==1
+    #     println("saving...")
+    #     currentSaveStr = saveStr * "-level-$level-iter-$iter.jld"
+    #     settings = (m,α,nTrain,R,d,domain,nTh,m,nt,T)
+    #     save(currentSaveStr,"Θbest",Θbest,"His",His,"settings",settings)
+    # end
+
+
     # save every saveIter iterations
     if mod(iter,saveIter)==0
         println("saving...")
-        currentSaveStr = saveStr *"-iter"*string(iter)*".jld"
+        currentSaveStr = saveStr * "-level-$level-iter-$iter.jld"
         settings = (m,α,nTrain,R,d,domain,nTh,m,nt,T)
         save(currentSaveStr,"Θbest",Θbest,"His",His,"settings",settings)
     end
 
     if mod(iter,sampleFreq)==0;
         println("resampling..")
-        J.X0    = sample(rho0,nTrain)
+        J.X0    = sample(rho0,nTrain[level])
         J.rho0x = rho0(J.X0)
         J.G.rho0x = rho0(J.X0)
         J.G.rho1x = rho1(J.X0)
@@ -250,13 +242,13 @@ else
             ng += norm(grads[p]).^2
             Zygote.Tracker.update!(opt,p, grads[p])
         end
-        cbBFGS(k)
     end
+    println("average time per iteration: $(runtime/maxIt)")
+
+    Θopt = MFGnet.param2vec(parms)
+    Θopt = MFGnet.vec2param!(Θopt,Θ)
+
+    settings = (m,α,nTrain,R,d,domain,nTh,m,nt,T)
+
+    save(saveStr*"-level-$level.jld","Θopt", Θopt,"Θbest",Θbest,"His",His,"settings",settings)
 end
-println("average time per iteration: $(runtime/maxIter)")
-Θopt = MFGnet.param2vec(parms)
-Θopt = MFGnet.vec2param!(Θopt,Θ)
-
-settings = (m,α,nTrain,R,d,domain,nTh,m,nt,T)
-
-save(saveStr*".jld","Θopt", Θopt,"Θbest",Θbest,"His",His,"settings",settings)

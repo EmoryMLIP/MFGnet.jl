@@ -9,13 +9,20 @@ using MFGnet
 include("viewers.jl")
 include("runOMThelpers.jl")
 
-iter        = 500
-d           = 2
+# @isdefined(d)  ? d = d : d = 2
+# @isdefined(level)  ? level = level : level = 2
+# @isdefined(iter)  ? iter = iter : iter = 500
+for d=[2]
+    for level=[1,2]
+        for iter=[100 200 300 400 500]
 
 dir = pwd()
-fname ="OMT-BFGS-d-"*string(d)*"-iter"*string(iter)
+
+# fname = "OMT-Multilevel-nt-2-m-16-d-2-level-2"
+fname = "OMT-Multilevel-noHJB-nt-8-d-$d-level-$level-iter-$iter"
 imgdir = dir * "/" * fname *"/"
 println("fname=$fname")
+mkdir(imgdir)
 file = fname * ".jld"
 res = load(file)
 settings = res["settings"]
@@ -26,6 +33,7 @@ if !@isdefined(ar)
     ar = x-> R.(x)
 end
 Θbest = res["Θbest"]
+println("number of model parameters: $(length(MFGnet.param2vec(Θbest)))")
 
 # rho1 = Gaussian(d)
 Gs = Array{Gaussian{R,Vector{R}}}(undef,8)
@@ -92,10 +100,10 @@ savefig(p6,imgdir * "phi0-n-$(M.n[1])x$(M.n[2]).png")
 
 
 xc = [ J.UN[1:d,:]; fill(T,1,size(J.X0,2))]
-Φ1 = vec(J.Φ(xc,Θbest) )
-p7 = viewImage2D(Φ1,M,aspect_ratio=:equal)
+Φ1z = vec(J.Φ(xc,Θbest) )
+p7 = viewImage2D(Φ1z,M,aspect_ratio=:equal)
 title!("Phi(z,1)")
-savefig(p7,imgdir * "phi1-n-$(M.n[1])x$(M.n[2]).png")
+savefig(p7,imgdir * "phi1z-n-$(M.n[1])x$(M.n[2]).png")
 
 
 deltaG = J.α[3]*MFGnet.getDeltaG(J.G,J.UN)
@@ -103,16 +111,17 @@ p8 = viewImage2D(deltaG,M,aspect_ratio=:equal)
 title!("deltaG(z)")
 savefig(p8,imgdir * "deltaG-n-$(M.n[1])x$(M.n[2]).png")
 
-resHJB = abs.(Φ1-deltaG)
+resHJB = abs.(Φ1z-deltaG)
 p9 = viewImage2D(resHJB,M,aspect_ratio=:equal)
 title!("|Phi1 - deltaG(z)|")
 savefig(p9,imgdir * "absDiffHJBfinal-n-$(M.n[1])x$(M.n[2]).png")
 
 
 # ###### Create new MFG for characteristics
-Xc     = sample(rho0,16)
+Xc     = load("OT-X0.jld")["Xt"]
 if d>2
-    Xc[3:d,:] .= R(0.0)
+    Xc = [Xc; zeros(d-2,size(Xc,2))]
+    # [3:d,:] .= R(0.0)
 end
 wc     = 1/size(Xc,2) * ones(size(Xc,2))
 rho0xc = rho0(Xc)
@@ -149,8 +158,36 @@ p4 = viewImage2D(abs.(res1),M,aspect_ratio=:equal)
 title!("| rho1(x)-rho0(z).*detInv |") # where's the determinant
 savefig(p4,imgdir * "absDiffRho1-n-$(M.n[1])x$(M.n[2]).png")
 
+xc = [ J.X0[1:d,:]; fill(T,1,size(J.X0,2))]
+Φ1x = vec(J.Φ(xc,Θbest) )
+p12 = viewImage2D(Φ1x,M,aspect_ratio=:equal)
+title!("Phi(x,1)")
+savefig(p12,imgdir * "phi1-n-$(M.n[1])x$(M.n[2]).png")
+
+
+X1,X2 = getFaceGrids(M)
+tt = range(0,stop=T,length=64)
+X1t = t -> [Matrix(X1'); zeros(d-2,size(X1,1)); fill(t,1,size(X1,1))]
+X2t = t -> [Matrix(X2'); zeros(d-2,size(X2,1)); fill(t,1,size(X2,1))]
+XC = getCellCenteredGrid(M)
+XCt = t -> [Matrix(XC'); zeros(d-2,size(XC,1)); fill(t,1,size(XC,1))]
+V1 = zeros(M.n[1]+1,M.n[2],length(tt))
+V2 = zeros(M.n[1],M.n[2]+1,length(tt))
+ΦOpt  = zeros(M.n[1],M.n[2],length(tt))
+
+for k=1:length(tt)
+    tk = tt[k]
+    println("tk=$tk")
+    Phi = J.Φ(X1t(tk),Θbest) # run fwd prop to populate N.tmp
+    gradPhi = MFGnet.getGradPotential(J.Φ,X1t(tk),Θbest)
+    V1[:,:,k] = reshape(-(1/J.α[1])*gradPhi[1,:],M.n[1]+1,M.n[2])
+    Phi = J.Φ(X2t(tk),Θbest) # run fwd prop to populate N.tmp
+    gradPhi = MFGnet.getGradPotential(J.Φ,X2t(tk),Θbest)
+    V2[:,:,k] = reshape(-(1/J.α[1])*gradPhi[2,:],M.n[1],M.n[2]+1)
+    ΦOpt[:,:,k] = reshape(J.Φ(XCt(tk),Θbest),M.n[1],M.n[2])
+end
 using MAT
-matwrite(imgdir  * fname * ".mat", Dict(
+matwrite( fname * ".mat", Dict(
     "rho0x" => rho0x,
     "rho1x" => rho1x,
     "rho1y" => rho1y,
@@ -165,5 +202,14 @@ matwrite(imgdir  * fname * ".mat", Dict(
     "deltaG" => deltaG,
     "n" => M.n,
     "Phi0" => Φ0,
-    "Phi1" => Φ1,
+    "Phi1z" => Φ1z,
+    "Phi1" => Φ1x,
+    "V1" => V1,
+    "V2" => V2,
+    "PhiOpt" => ΦOpt,
     "His" => res["His"]))
+end
+
+end
+
+end

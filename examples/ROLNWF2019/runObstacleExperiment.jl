@@ -9,7 +9,6 @@ using MFGnet
 include("viewers.jl")
 include("runOMThelpers.jl")
 
-error("LR")
 # set default experimental parameters
 @isdefined(R)  ? R = R : R = Float64                                  # element type. Use Float32 or Float64
 @isdefined(d)  ? d = d : d = 2                                        # dimension of problem

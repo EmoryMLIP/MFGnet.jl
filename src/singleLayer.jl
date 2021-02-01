@@ -11,7 +11,7 @@ where K,b are trainable weights
 struct SingleLayer
 end
 
-mσ(x::AbstractArray{R}) where R<:Real = log.(exp.(x)+exp.(-x))
+mσ(x::AbstractArray{R}) where R<:Real = abs.(x)+log.(R(1) .+ exp.(-R(2)*abs.(x)))
 mdσ(x::AbstractArray{R}) where R<:Real = tanh.(x)
 md2σ(x::AbstractArray{R}) where R<:Real = one(eltype(x)) .- tanh.(x).^2
 
@@ -21,7 +21,7 @@ evaluate layer for current weights Θ=(K,b)
 function (N::SingleLayer)(S::AbstractArray{R},Θ::Tuple{AbstractArray{R,2},AbstractArray{R,1}}) where R <: Real
     (K,b) = Θ
     Z = K*S .+ b
-    return log.(exp.(Z)+exp.(-Z))
+    return mσ(Z)
 end
 
 """
