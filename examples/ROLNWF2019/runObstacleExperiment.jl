@@ -72,6 +72,9 @@ end
 
 α = ar.(α)
 tspan = [0.0, T]
+Φ = getPotentialResNet(nTh,1.0,nTh,R)
+(w0,ΘN,A0,b0,z0) = initializeWeights(d,m,nTh,ar)
+
 
 rho0xv = rho0(X0val)
 rho1xv = rho1(X0val)
@@ -89,7 +92,7 @@ ps = Flux.params(parms)
 
 println("\n\n ---------- Obstacle Driver -------------\n\n")
 println("results stored in: $(pwd()*"/"*saveStr)-level-1.jld")
-println("sampleFreq = $(sampleFreq), α = $(α), nTh = $(nTh), m = $(m), nt = $(J.nt), Qheight = $(Qheight), sigQ=$(sigQ)")
+println("sampleFreq = $(sampleFreq), α = $(α), nTh = $(nTh), m = $(m), nt = $(nt), Qheight = $(Qheight), sigQ=$(sigQ)")
 println("DIMENSION = $(d), nTrain = $(nTrain), nVal = $(nVal), saveIter = $(saveIter), maxIter = $(maxIter), muFe=$(muFe), muFp=$(muFp)\n\n")
 println("optim: $optim")
 
