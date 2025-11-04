@@ -68,6 +68,67 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
+  format:
+    name: Code Formatting
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.11'
+
+      - name: Install JuliaFormatter
+        run: julia -e 'using Pkg; Pkg.add("JuliaFormatter")'
+
+      - name: Check code formatting
+        run: |
+          julia -e '
+            using JuliaFormatter
+            formatted = format(".", verbose=true)
+            if !formatted
+              @error "Code is not formatted. Please run: julia -e \"using JuliaFormatter; format(\\\".\\\")\" locally and commit the changes."
+              exit(1)
+            end
+            @info "All files are properly formatted!"
+          '
+
+  quality:
+    name: Package Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.11'
+
+      - uses: julia-actions/cache@v1
+
+      - name: Install dependencies
+        run: |
+          julia --project=. -e '
+            using Pkg
+            Pkg.instantiate()
+            Pkg.add("Aqua")
+          '
+
+      - name: Run Aqua quality checks
+        run: |
+          julia --project=. -e '
+            using MFGnet
+            using Aqua
+            Aqua.test_all(MFGnet,
+              ambiguities=false,  # Can have false positives
+              unbound_args=true,
+              undefined_exports=true,
+              project_extras=true,
+              stale_deps=true,
+              deps_compat=true,
+              piracy=true
+            )
+          '
+
   docs:
     name: Documentation
     runs-on: ubuntu-latest

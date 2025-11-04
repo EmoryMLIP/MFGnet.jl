@@ -1,6 +1,10 @@
 # MFGnet
 
-[![CI](https://github.com/EmoryMLIP/MFGnet.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/EmoryMLIP/MFGnet.jl/actions/workflows/CI.yml)
+[![CI](https://github.com/EmoryMLIP/MFGnet.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/EmoryMLIP/MFGnet.jl/actions/workflows/CI.yml)
+[![codecov](https://codecov.io/gh/EmoryMLIP/MFGnet.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/EmoryMLIP/MFGnet.jl)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Julia Version](https://img.shields.io/badge/Julia-1.6+-blue.svg)](https://julialang.org/)
+[![Code Style: Blue](https://img.shields.io/badge/code%20style-blue-4495d1.svg)](https://github.com/invenia/BlueStyle)
 
 This repository contains the Julia code used in [*A Machine Learning Framework for Solving High-Dimensional Mean Field Game and Mean Field Control Problems*](https://doi.org/10.1073/pnas.1922204117).
 
