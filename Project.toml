@@ -22,9 +22,10 @@ JLD = "4138dd39-2aa7-5051-a626-17a0bb65d9c8"
 MAT = "23992714-dd62-5051-b70f-ba57cb901cac"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 jInv = "3dacf901-f8cd-5544-86ed-7a705f85c244"
 
 [targets]
-test = ["Test"]
+test = ["Test", "Statistics"]
