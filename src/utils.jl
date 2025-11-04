@@ -22,11 +22,8 @@ end
 
 
 function myMap(f::Function,Θ::Tuple)
-    fΘ = Array{Any}(undef,length(Θ))
-    for k=1:length(Θ)
-        fΘ[k] = myMap(f,Θ[k])
-    end
-    return tuple(fΘ...)
+    # Use tuple mapping for type stability instead of Array{Any}
+    return map(x -> myMap(f, x), Θ)
 end
 
 function evalObjAndGrad(J,Θ::Vector,parms,ps)
@@ -40,7 +37,7 @@ function evalObjAndGrad(J,Θ::Vector,parms,ps)
     dJ = Θ .* 0.0
     cnt = 0;
     for p in ps
-		if gc[p]!=nothing 
+		if !isnothing(gc[p]) 
         	gp = vec(gc[p])
 			dJ[cnt+1:cnt+length(gp)] = gp
 			cnt +=length(gp)

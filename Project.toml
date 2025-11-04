@@ -19,7 +19,7 @@ Zygote = "e88e6eb3-aa80-5325-afca-941959d7151f"
 jInv = "3dacf901-f8cd-5544-86ed-7a705f85c244"
 
 [compat]
-julia = "1.5"
+julia = "1.6"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

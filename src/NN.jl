@@ -18,9 +18,10 @@ evaluate layer for current weights Θ=(K,b)
 """
 
 function (N::NN)(S::AbstractArray{R},Θ) where R <: Real
-	N.tmpS = ()
+	# Pre-allocate vector for better performance (avoid tuple appending)
+	N.tmpS = Vector{Any}(undef, nLayers(N))
 	for k=1: nLayers(N)
-		N.tmpS = append(N.tmpS,S)
+		N.tmpS[k] = S
 		S = N.layers[k](S,Θ[k]) :: Array{R,2}
     end
     return S
@@ -30,21 +31,24 @@ end
 compute matvec J_S N(S,Θ)'*Z
 """
 function getJSTmv(N::NN,Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
-	N.tmpZ = ();
+	# Pre-allocate vector for better performance (avoid tuple appending)
+	N.tmpZ = Vector{Any}(undef, nLayers(N))
     for k=nLayers(N):-1:1
-        N.tmpZ = append(Z,N.tmpZ)
+        N.tmpZ[nLayers(N)-k+1] = Z
         Z = getJSTmv(N.layers[k],Z,N.tmpS[k],Θ[k])
     end
     return Z
 end
 
 function getGradAndHessian(N::NN,dZ::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
-	N.tmpZ = dZ;
+	# Pre-allocate vector for better performance (avoid tuple appending)
+	N.tmpZ = Vector{Any}(undef, nLayers(N))
+	N.tmpZ[end] = dZ
     dZ, d2Z = getGradAndHessian(N.layers[end],dZ,N.tmpS[end],Θ[end])
     # dZ  = getJSTmv(N.layers[end],dZ,N.tmp[end],Θ[end])
 
     for k=nLayers(N)-1:-1:1
-        N.tmpZ = append(dZ,N.tmpZ)
+        N.tmpZ[k] = dZ
         dZ,d2Z = getGradAndHessian(N.layers[k],dZ,d2Z,N.tmpS[k],Θ[k])
         # dZ  = getJSTmv(N.layers[k],dZ,N.tmp[k],Θ[k])
     end
