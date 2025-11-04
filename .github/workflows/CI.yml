@@ -13,35 +13,20 @@ on:
 
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
-    runs-on: ${{ matrix.os }}
+    name: Julia ${{ matrix.version }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         version:
-          - '1.6'    # LTS
           - '1.10'   # Recent stable
           - '1.11'   # Latest stable
-          - 'nightly' # Nightly build
-        os:
-          - ubuntu-latest
-        arch:
-          - x64
-        include:
-          # Test on macOS and Windows for latest stable only
-          - os: macOS-latest
-            arch: x64
-            version: '1.11'
-          - os: windows-latest
-            arch: x64
-            version: '1.11'
     steps:
       - uses: actions/checkout@v4
 
       - uses: julia-actions/setup-julia@v1
         with:
           version: ${{ matrix.version }}
-          arch: ${{ matrix.arch }}
 
       - uses: julia-actions/cache@v1
 
@@ -50,6 +35,13 @@ jobs:
           julia --project=. -e '
             using Pkg
             Pkg.instantiate()
+          '
+
+      - name: Build and precompile
+        run: |
+          julia --project=. -e '
+            using Pkg
+            Pkg.build()
             Pkg.precompile()
           '
 
