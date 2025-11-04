@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+      - main
+      - 'claude/**'
+  pull_request:
+    branches:
+      - master
+      - main
+
+jobs:
+  test:
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1.6'    # LTS
+          - '1.10'   # Recent stable
+          - '1.11'   # Latest stable
+          - 'nightly' # Nightly build
+        os:
+          - ubuntu-latest
+        arch:
+          - x64
+        include:
+          # Test on macOS and Windows for latest stable only
+          - os: macOS-latest
+            arch: x64
+            version: '1.11'
+          - os: windows-latest
+            arch: x64
+            version: '1.11'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: ${{ matrix.version }}
+          arch: ${{ matrix.arch }}
+
+      - uses: julia-actions/cache@v1
+
+      - name: Install dependencies
+        run: |
+          julia --project=. -e '
+            using Pkg
+            Pkg.instantiate()
+            Pkg.precompile()
+          '
+
+      - name: Run tests
+        run: |
+          julia --project=. -e '
+            using Pkg
+            Pkg.test(coverage=true)
+          '
+
+      - uses: julia-actions/julia-processcoverage@v1
+
+      - uses: codecov/codecov-action@v3
+        with:
+          files: lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: '1.11'
+
+      - name: Check for documentation
+        run: |
+          if [ -d "docs" ]; then
+            julia --project=docs -e '
+              using Pkg
+              Pkg.develop(PackageSpec(path=pwd()))
+              Pkg.instantiate()
+            '
+          else
+            echo "No docs directory found, skipping documentation build"
+          fi

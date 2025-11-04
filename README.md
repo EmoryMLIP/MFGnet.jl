@@ -1,16 +1,37 @@
 # MFGnet
 
+[![CI](https://github.com/EmoryMLIP/MFGnet.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/EmoryMLIP/MFGnet.jl/actions/workflows/CI.yml)
+
 This repository contains the Julia code used in [*A Machine Learning Framework for Solving High-Dimensional Mean Field Game and Mean Field Control Problems*](https://doi.org/10.1073/pnas.1922204117).
 
 ## Installation
 
 This package can be installed using Julia's package manager. To do this, type:
 
-```
-using Pkg;
+```julia
+using Pkg
 Pkg.add(PackageSpec(url="https://github.com/EmoryMLIP/MFGnet.jl/"))
-
 ```
+
+## Testing
+
+To run the test suite locally:
+
+```julia
+using Pkg
+Pkg.test("MFGnet")
+```
+
+Or use the provided test script:
+
+```bash
+julia test_local.jl
+```
+
+## Requirements
+
+- Julia 1.6 or later (Julia 1.11+ recommended)
+- See `Project.toml` for package dependencies
 
 ## Reference
 
