@@ -1,4 +1,3 @@
-using Flux
 using MFGnet
 using Test
 

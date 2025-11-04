@@ -14,7 +14,6 @@ A detailed description of the approach implemented here can be found in:
 """
 module MFGnet
     using LinearAlgebra
-    using Flux
 	using Zygote
     using Printf
 
