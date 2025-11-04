@@ -19,10 +19,10 @@ module MFGnet
 
     include("F.jl")
     include("G.jl")
-    include("layers.jl")
-    include("singleLayer.jl")
-    include("ResNN.jl")
-    include("NN.jl")
+    include("singleLayer.jl")  # Must come before ResNN and NN
+    include("ResNN.jl")        # Must come before NN (NN uses Union{SingleLayer,ResNN})
+    include("NN.jl")           # Must come before layers.jl
+    include("layers.jl")       # Uses NN() in PotentialNN constructor
     include("odefun.jl")
     include("timeStepping.jl")
     include("linInter1D.jl")
