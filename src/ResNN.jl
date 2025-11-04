@@ -42,11 +42,11 @@ function getJSTmv(N::ResNN{R},Z::AbstractVector{R},S::AbstractArray{R},Θ)  wher
     Θk = linInter1D(N.ts[end-1],T,Θ)
     # Pre-allocate vector for better performance (avoid tuple appending)
     N.tmpZ = Vector{Any}(undef, nLayers(N)+1)
-    N.tmpZ[1] = Z
+    N.tmpZ[nLayers(N)] = Z
     Z = Z .+ hk .* getJSTmv(N.layer,Z,N.tmpS[end],Θk)
 
     for k=nLayers(N)-1:-1:1
-		N.tmpZ[nLayers(N)-k+2] = Z
+		N.tmpZ[k] = Z
         hk = N.ts[k+1]-N.ts[k]
         Θk = linInter1D(N.ts[k],T,Θ)
         Z +=  hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)
@@ -58,9 +58,9 @@ function getJSTmv(N::ResNN{R},Z::AbstractArray{R},S::AbstractArray{R},Θ) where 
     T = maximum(N.ts)
 	# Pre-allocate vector for better performance (avoid tuple appending)
 	N.tmpZ = Vector{Any}(undef, nLayers(N)+1)
-	N.tmpZ[1] = 1
+	N.tmpZ[nLayers(N)+1] = 1
     for k=nLayers(N):-1:1
-		N.tmpZ[nLayers(N)-k+2] = Z
+		N.tmpZ[k] = Z
         hk = N.ts[k+1]-N.ts[k]
         Θk = linInter1D(N.ts[k],T,Θ)
         Z +=  hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)

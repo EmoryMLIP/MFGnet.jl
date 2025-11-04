@@ -34,7 +34,7 @@ function getJSTmv(N::NN,Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: R
 	# Pre-allocate vector for better performance (avoid tuple appending)
 	N.tmpZ = Vector{Any}(undef, nLayers(N))
     for k=nLayers(N):-1:1
-        N.tmpZ[nLayers(N)-k+1] = Z
+        N.tmpZ[k] = Z
         Z = getJSTmv(N.layers[k],Z,N.tmpS[k],Θ[k])
     end
     return Z
