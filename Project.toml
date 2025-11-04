@@ -27,4 +27,4 @@ TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 jInv = "3dacf901-f8cd-5544-86ed-7a705f85c244"
 
 [targets]
-test = ["Test", "Flux"]
+test = ["Test"]
