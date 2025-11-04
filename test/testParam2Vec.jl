@@ -1,5 +1,4 @@
 using Flux
-using Revise
 using MFGnet
 using Test
 

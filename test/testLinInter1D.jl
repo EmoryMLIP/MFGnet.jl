@@ -1,5 +1,4 @@
 using LinearAlgebra
-using Revise
 using Statistics
 using Test
 using MFGnet
