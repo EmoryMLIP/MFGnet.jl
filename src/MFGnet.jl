@@ -15,7 +15,14 @@ A detailed description of the approach implemented here can be found in:
 module MFGnet
     using LinearAlgebra
 	using Zygote
+    using ChainRulesCore
     using Printf
+
+    # Custom exception types (must come first)
+    include("exceptions.jl")
+
+    # Mesh utilities (self-contained, no dependencies)
+    include("mesh_utils.jl")
 
     include("F.jl")
     include("G.jl")

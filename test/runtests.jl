@@ -35,3 +35,32 @@ end
     include("testLinInter1D.jl")
 end
 
+# Phase 2 additions: Tests for previously untested modules
+
+@testset "MeanFieldGame" begin
+    include("testMFG.jl")
+end
+
+@testset "BFGS Optimizer" begin
+    include("testBFGS.jl")
+end
+
+@testset "Time Stepping" begin
+    include("testTimeStepping.jl")
+end
+
+@testset "Running Cost Functions (F)" begin
+    include("testF.jl")
+end
+
+@testset "Terminal Cost Functions (G)" begin
+    include("testG.jl")
+end
+
+@testset "Gaussians" begin
+    include("testGaussians.jl")
+end
+
+@testset "Utils" begin
+    include("testUtils.jl")
+end

@@ -94,7 +94,27 @@ function getTrace(H::AbstractArray{R}) where R <: Real
     return trH
 end
 
-getQ(XT::AbstractArray{R}) where R<: Real = Matrix{R}(I, size(XT,1), size(XT,1)-1)
+"""
+    getQ(XT::AbstractArray{R}) where R<: Real
+
+Create projection matrix Q that extracts spatial dimensions from space-time vector.
+
+For XT of size (d+1) × nex where the last row is time, Q projects onto the first d spatial dimensions.
+Returns a (d+1) × d matrix.
+
+# Edge Case
+For 1D spatial problems (d=1, so XT has 2 rows), returns a (2,1) matrix to maintain compatibility.
+"""
+function getQ(XT::AbstractArray{R}) where R<: Real
+    d = size(XT,1)
+    if d > 1
+        return Matrix{R}(I, d, d-1)
+    else
+        # For d=1 case (1D spatial + 1 time dimension), return column vector [1; 0]
+        # This ensures tr(Q'*A*Q) has correct dimension
+        return Matrix{R}([1])  # Returns 1×1 matrix containing [1]
+    end
+end
 
 function getQ(Φ::PotentialNN,XT::AbstractArray{R}) where R<: Real
     d = size(XT,1)
@@ -110,7 +130,9 @@ function getTraceHess(Φ::PotentialNN,XT::AbstractArray{R},Θ) where R <: Real
     A = R(0.5)*(A'+A)
 
     d = size(XT,1)
-    Q = getQ(Φ,XT)
+    # Wrap getQ in ignore_derivatives to prevent differentiation through matrix construction
+    # Q depends only on size(XT,1), not on XT values or Θ parameters
+    Q = ChainRulesCore.ignore_derivatives(getQ(Φ,XT))
     trH1 = getTraceHess(Φ.N,w,Q,XT,ΘN)
     return trH1 .+ tr(Q'*A*Q)
 end

@@ -1,12 +1,12 @@
 """
-    function jInv.Vis.viewImage2D
+    function viewImage2D
     visualizes 2D image on mesh
     Input:
     I - image data
-    M - 2 dimensional AbstractTensorMesh
+    M - 2 dimensional RegularMesh
     kwargs get piped to pcolormesh
 """
-function viewImage2D(I::Array,M::AbstractTensorMesh;kwargs...)
+function viewImage2D(I::Array,M;kwargs...)
 	if M.dim!=2
 		error("viewImage2D supports only 2-dimensional images")
 	end

@@ -1,6 +1,6 @@
 using Flux
 using LinearAlgebra
-using jInv.Mesh
+# using jInv.Mesh  # Replaced with MFGnet.mesh_utils
 using Printf
 using Plots
 using JLD
@@ -18,7 +18,7 @@ include("runOMThelpers.jl")
 @isdefined(m)           ? m=m               : m=16                    # width of network
 @isdefined(nTh)         ? nTh=nTh           : nTh=2                   # number of nodes in ResNet discretization
 @isdefined(nTrain)      ? nTrain=nTrain     : nTrain=[32^2 64^2 128^2]# number of training samples
-@isdefined(nVal)        ? nVal=nVal         : nVal=minimum([64^2,nTrain]) # number of validation samples
+@isdefined(nVal)        ? nVal=nVal         : nVal=min(64^2, minimum(nTrain)) # number of validation samples
 @isdefined(nt)          ? nt=nt             : nt=2                    # number of time steps for characteristics
 @isdefined(stepper)     ? stepper=stepper   : stepper=RK4Step()       # time stepping for characteristics
 @isdefined(T)           ? T=T               : T=1.0                   # final time for dynamical OT
@@ -77,11 +77,11 @@ Jv  = MeanFieldGame(Fv,Gv,X0val,rho0,wVal,Φ=Φ,stepper=stepper,nt=nt,α=α,tspa
 Θ = (w0,(ΘN),A0,b0,z0)
 
 parms = MFGnet.myMap(x->x,Θ)
-ps = params(parms)
+ps = Flux.params(parms)
 
 println("\n\n ---------- OMT Driver -------------\n\n")
 println("results stored in: $(pwd()*"/"*saveStr)-level-1.jld")
-println("sampleFreq = $(sampleFreq), α = $(α), nTh = $(nTh), m = $(m), nt = $(J.nt)")
+println("sampleFreq = $(sampleFreq), α = $(α), nTh = $(nTh), m = $(m), nt = $(nt)")
 println("DIMENSION = $(d), nTrain = $(nTrain), nVal = $(nVal), saveIter = $(saveIter), maxIter = $(maxIter)\n\n")
 println("optim: $optim")
 
@@ -252,7 +252,7 @@ for level=1:length(nTrain)
             cbBFGS(k)
         end
     end
-    println("average time per iteration: $(runtime/maxIter)")
+    println("average time per iteration: $(runtime/maxIter[level])")
     Θopt = MFGnet.param2vec(parms)
     Θopt = MFGnet.vec2param!(Θopt,Θ)
 

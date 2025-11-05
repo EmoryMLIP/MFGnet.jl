@@ -1,4 +1,4 @@
-
+export param2vec, vec2param!
 
 function vec2param!(Θvec,Θparam::AbstractArray)
     Θparam .= reshape(Θvec, size(Θparam))

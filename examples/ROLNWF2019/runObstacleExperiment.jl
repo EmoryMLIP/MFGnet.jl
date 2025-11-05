@@ -1,6 +1,6 @@
 using Flux, Zygote
 using LinearAlgebra
-using jInv.Mesh
+# using jInv.Mesh  # Replaced with MFGnet.mesh_utils
 using Printf
 using Plots
 using JLD

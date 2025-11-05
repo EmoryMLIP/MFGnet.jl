@@ -67,13 +67,19 @@ end
 function (F::Fe{R})(U::AbstractArray{R},t::R) where R <: Real
     (d,nex)     = size(U)
     d -= 4
-    return F.λ .* (log.(F.rho0x) - vec(U[end-2,:]))
+    # Add numerical safeguard: clamp densities to avoid log(0) = -Inf
+    ε = sqrt(eps(R))  # ~1e-8 for Float64, ~1e-4 for Float32
+    rho0x_safe = max.(F.rho0x, ε)
+    return F.λ .* (log.(rho0x_safe) - vec(U[end-2,:]))
 end
 
 function getDeltaF(F::Fe{R},U::AbstractArray{R},t::R) where R <: Real
     (d,nex) = size(U)
     d      -= 4
-    return F.λ.*(log.(F.rho0x) - vec(U[end-2,:]) .+ R(1))
+    # Add numerical safeguard: clamp densities to avoid log(0) = -Inf
+    ε = sqrt(eps(R))
+    rho0x_safe = max.(F.rho0x, ε)
+    return F.λ.*(log.(rho0x_safe) - vec(U[end-2,:]) .+ R(1))
 end
 
 struct F0

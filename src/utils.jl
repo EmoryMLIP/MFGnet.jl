@@ -1,4 +1,4 @@
-export evalObj, evalObjAndGrad
+export evalObj, evalObjAndGrad, append
 
 function append(A::Tuple,B)
 	return (A...,B)
@@ -37,12 +37,10 @@ function evalObjAndGrad(J,Θ::Vector,parms,ps)
     dJ = Θ .* 0.0
     cnt = 0;
     for p in ps
-		if !isnothing(gc[p]) 
+		if !isnothing(gc[p])
         	gp = vec(gc[p])
 			dJ[cnt+1:cnt+length(gp)] = gp
 			cnt +=length(gp)
-		else
-			println("grad was nothing")
 		end
     end
     return Jc,dJ

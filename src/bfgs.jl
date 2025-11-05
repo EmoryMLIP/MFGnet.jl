@@ -1,3 +1,5 @@
+export bfgs
+
 """
 armijo(f,fk,dfk,xk,pk)
 Backtracked Armijo linesearch
@@ -25,7 +27,7 @@ bfgs(f,df,x)
 BFGS method for solving min_x f(x)
 """
 function bfgs(f::Function,fdf::Function,x::Vector;H=Matrix{eltype(x)}(I, length(x), length(x)), maxIter=20,atol=1e-8,out::Int=0,storeInterm::Bool=false,
-	lineSearch::Function=(f,fk,dfk,xk,pk,ak)->armijo(f,fk,dfk,xk,pk,maxIter=30,t=ak),cb::Function=()->())
+	lineSearch::Function=(f,fk,dfk,xk,pk,ak)->armijo(f,fk,dfk,xk,pk,maxIter=30,t=ak),cb::Function=(i)->())
 
     his = zeros(maxIter,3)
     # I   = speye(length(x))
@@ -69,7 +71,7 @@ function bfgs(f::Function,fdf::Function,x::Vector;H=Matrix{eltype(x)}(I, length(
         	H     = (I - (sk*yk')/dot(sk,yk)) * H * (I - (yk*sk')/dot(sk,yk)) + (sk*sk')/dot(yk,sk)
         else
             if out>0
-                println("bfgs detected negative curvature. Resetting Hessian")
+                @warn "BFGS detected negative curvature, resetting Hessian approximation"
                 a0=1.0
             end
             H = Matrix{eltype(x)}(I, length(x), length(x))

@@ -1,4 +1,4 @@
-export Gcomb, Gls, Gkl, Gls2, Gpref
+export Gcomb, Gls, Gkl, Gls2, Gpref, getDeltaG
 """
 combine different G's
 """
@@ -36,17 +36,32 @@ function Base.show(io::IO, G::Gls)
 end
 
 function (G::Gls)(U::AbstractArray{R}) where R <: Real
-
     d   = size(U,1)-4
-    return G.mu*R(0.5)* ( G.rho0x./ exp.(-U[d+1,:]) - G.rho1(U[1:d,:]) ).^2 .* (exp.(-U[d+1,:])./G.rho0x)
 
+    # Add numerical safeguards to avoid division by zero and overflow/underflow
+    ε = sqrt(eps(R))  # ~1e-8 for Float64
+    rho0x_safe = max.(G.rho0x, ε)
+
+    # Clamp U[d+1,:] to avoid extreme values in exp
+    U_clamped = clamp.(U[d+1,:], -R(100), R(100))  # Prevents overflow in exp
+    exp_neg_U = exp.(-U_clamped)
+
+    rho1_vals = G.rho1(U[1:d,:])
+
+    return G.mu*R(0.5)* ( rho0x_safe ./ exp_neg_U - rho1_vals ).^2 .* (exp_neg_U ./ rho0x_safe)
 end
 
-function getDeltaG(G::Gls,U::AbstractArray)
+function getDeltaG(G::Gls,U::AbstractArray{R}) where R <: Real
     (d,nex) = size(U)
     d      -= 4
-    detDy = exp.(U[d+1,:])
-    return G.mu.*(G.rho0x ./detDy - G.rho1(U[1:d,:]))
+
+    # Add numerical safeguards
+    ε = sqrt(eps(R))
+    U_clamped = clamp.(U[d+1,:], -R(100), R(100))
+    detDy = exp.(U_clamped)
+    rho0x_safe = max.(G.rho0x, ε)
+
+    return G.mu.*(rho0x_safe ./detDy - G.rho1(U[1:d,:]))
 end
 
 """
@@ -59,11 +74,19 @@ mutable struct Gkl
     rho1x::Vector # = rho1(X0), stored for efficiency
     mu::Real      # = penalty parameter
 end
-function (G::Gkl)(U)
+function (G::Gkl)(U::AbstractArray{R}) where R <: Real
     (d,nex) = size(U)
     d -= 4
-    return G.mu .* (log.(G.rho0x) - U[d+1,:] - log.(G.rho1(U[1:d,:])))
+
+    # Add numerical safeguards to avoid log(0) = -Inf
+    ε = sqrt(eps(R))  # ~1e-8 for Float64
+    rho0x_safe = max.(G.rho0x, ε)
+    rho1_vals = G.rho1(U[1:d,:])
+    rho1_safe = max.(rho1_vals, ε)
+
+    return G.mu .* (log.(rho0x_safe) - U[d+1,:] - log.(rho1_safe))
 end
+
 function Base.show(io::IO, G::Gkl)
   print(io, "$(G.mu) ⋅ Gkl(U)")
 end
@@ -71,7 +94,14 @@ end
 function getDeltaG(G::Gkl,U::AbstractArray{R})  where R <: Real
     (d,nex) = size(U)
     d      -= 4
-    return G.mu.*(R(1.0) .+ log.(G.rho0x) - U[d+1,:] - log.(G.rho1(U[1:d,:])))
+
+    # Add numerical safeguards to avoid log(0) = -Inf
+    ε = sqrt(eps(R))
+    rho0x_safe = max.(G.rho0x, ε)
+    rho1_vals = G.rho1(U[1:d,:])
+    rho1_safe = max.(rho1_vals, ε)
+
+    return G.mu.*(R(1.0) .+ log.(rho0x_safe) - U[d+1,:] - log.(rho1_safe))
 end
 
 

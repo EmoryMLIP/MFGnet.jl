@@ -4,28 +4,71 @@ export ResNN
 ResNN
 
 Residual Neural Network structure
+
+# Type Parameter
+- `R<:Real`: Numeric type for computations and time points
+
+# Fields
+- `layer::SingleLayer`: Description of the repeated layer
+- `ts::Vector{R}`: Time points for residual connections
+- `tmpS::Union{Tuple{},Vector{Any}}`: Temporary storage for forward pass states
+- `tmpZ::Union{Tuple{},Vector{Any}}`: Temporary storage for backward pass states
+
+# Note
+Temporary storage is initialized as empty tuples and allocated during computation.
 """
 mutable struct ResNN{R<:Real}
     layer::SingleLayer   # description of layer
     ts::Vector{R}      # time points
-    tmpS    # storage for intermediates
-    tmpZ    # storage for intermediates
+    tmpS    # Type: Union{Tuple,Vector{Any}}, but cannot be annotated due to dynamic assignment patterns
+    tmpZ    # Type: Union{Tuple,Vector{Any}}, but cannot be annotated due to dynamic assignment patterns
 end
 
-ResNN(layer=SingleLayer(),ts::Vector{R}=[0.0 0.5 1.0]) where R<:Real =
+ResNN(layer=SingleLayer(),ts::Vector{R}=[0.0, 0.5, 1.0]) where R<:Real =
         ResNN(layer,ts,(),())
 
 nLayers(N::ResNN) = length(N.ts)-1
 
 """
-evaluate layer for current weights Θ=(K,b)
+    (N::ResNN{R})(S::AbstractArray{R}, Θ) -> AbstractArray{R}
+
+Evaluate residual neural network forward pass.
+
+# Arguments
+- `S::AbstractArray{R}`: Input features
+- `Θ`: Time-dependent parameters
+
+# Returns
+- Output features after all residual layers
+
+# Throws
+- `InvalidParameterError`: If input contains non-finite values
+- `ArgumentError`: If input is empty or time points are invalid
 """
 function (N::ResNN{R})(S::AbstractArray{R},Θ) where R <: Real
+    # Input validation
+    if size(S, 1) == 0 || size(S, 2) == 0
+        throw(ArgumentError("Input S must be non-empty, got size $(size(S))"))
+    end
+
+    if !all(isfinite, S)
+        throw(InvalidParameterError("S", "contains non-finite values (NaN or Inf)", "ResNN forward pass"))
+    end
+
+    if length(N.ts) < 2
+        throw(InvalidParameterError("ts", "must have at least 2 time points, got $(length(N.ts))", "ResNN"))
+    end
+
     T = maximum(N.ts)
 	# Pre-allocate vector for better performance (avoid tuple appending)
-	N.tmpS = Vector{Any}(undef, nLayers(N))
+	# Use ignore_derivatives to avoid differentiation through cache mutations
+	ChainRulesCore.ignore_derivatives() do
+		N.tmpS = Vector{Any}(undef, nLayers(N))
+	end
     for k=1:nLayers(N)
-		N.tmpS[k] = S
+		ChainRulesCore.ignore_derivatives() do
+			N.tmpS[k] = S
+		end
         hk = R(N.ts[k+1]-N.ts[k])
         Θk = linInter1D(N.ts[k],T,Θ)
         S += hk .* N.layer(S,Θk)
@@ -40,13 +83,17 @@ function getJSTmv(N::ResNN{R},Z::AbstractVector{R},S::AbstractArray{R},Θ)  wher
     T = maximum(N.ts)
     hk = R(N.ts[end]-N.ts[end-1])
     Θk = linInter1D(N.ts[end-1],T,Θ)
-    # Pre-allocate vector for better performance (avoid tuple appending)
-    N.tmpZ = Vector{Any}(undef, nLayers(N)+1)
-    N.tmpZ[nLayers(N)] = Z
+    # Pre-allocate vector - mutations wrapped in ignore since tmpZ is only for internal caching
+    ChainRulesCore.ignore_derivatives() do
+        N.tmpZ = Vector{Any}(nothing, nLayers(N)+1)
+        N.tmpZ[nLayers(N)] = Z
+    end
     Z = Z .+ hk .* getJSTmv(N.layer,Z,N.tmpS[end],Θk)
 
     for k=nLayers(N)-1:-1:1
-		N.tmpZ[k] = Z
+		ChainRulesCore.ignore_derivatives() do
+			N.tmpZ[k] = Z
+		end
         hk = N.ts[k+1]-N.ts[k]
         Θk = linInter1D(N.ts[k],T,Θ)
         Z +=  hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)
@@ -56,11 +103,15 @@ end
 
 function getJSTmv(N::ResNN{R},Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
-	# Pre-allocate vector for better performance (avoid tuple appending)
-	N.tmpZ = Vector{Any}(undef, nLayers(N)+1)
-	N.tmpZ[nLayers(N)+1] = 1
+	# Pre-allocate vector - mutations wrapped in ignore since tmpZ is only for internal caching
+	ChainRulesCore.ignore_derivatives() do
+		N.tmpZ = Vector{Any}(nothing, nLayers(N)+1)
+		N.tmpZ[nLayers(N)+1] = 1
+	end
     for k=nLayers(N):-1:1
-		N.tmpZ[k] = Z
+		ChainRulesCore.ignore_derivatives() do
+			N.tmpZ[k] = Z
+		end
         hk = N.ts[k+1]-N.ts[k]
         Θk = linInter1D(N.ts[k],T,Θ)
         Z +=  hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)
@@ -136,13 +187,17 @@ function getGradAndHessian(N::ResNN{R},dZ::AbstractArray{R},S::AbstractArray{R},
 
     Θk = linInter1D(N.ts[end-1],T,Θ)
     hk = N.ts[end]-N.ts[end-1]
-    N.tmpZ = append(dZ,1)
+    ChainRulesCore.ignore_derivatives() do
+        N.tmpZ = append(dZ,1)
+    end
     ddZ, d2Z = getGradAndHessian(N.layer,dZ,N.tmpS[end],Θk)
     dZ  = dZ .+ hk .* ddZ
     d2Z = hk.*d2Z
 
     for k=nLayers(N)-1:-1:1
-		N.tmpZ = append(dZ,N.tmpZ)
+		ChainRulesCore.ignore_derivatives() do
+			N.tmpZ = append(dZ,N.tmpZ)
+		end
         Θk = linInter1D(N.ts[k],T,Θ)
         hk = N.ts[k+1]-N.ts[k]
         ddZ, d2Z1 =  getGradAndHessian(N.layer,dZ,N.tmpS[k],Θk)
@@ -156,7 +211,9 @@ end
 function getGradAndHessian(N::ResNN{R},dZ::AbstractArray{R},d2Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
     for k=nLayers(N):-1:1
-        N.tmp[k,2] = dZ
+        ChainRulesCore.ignore_derivatives() do
+            N.tmpZ[k] = dZ
+        end
         Θk = linInter1D(N.ts[k],T,Θ)
         hk = N.ts[k+1]-N.ts[k]
         ddZ,d2Z1 =   getGradAndHessian(N.layer,dZ,N.tmpS[k],Θk)

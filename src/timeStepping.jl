@@ -1,4 +1,4 @@
-export RK1Step, RK4Step
+export RK1Step, RK4Step, step, integrate, integrate2
 
 struct RK1Step
 end

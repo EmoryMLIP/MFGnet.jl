@@ -1,4 +1,4 @@
-export Gaussian, GaussianMixture, sample
+export Gaussian, GaussianMixture, sample, totalMass
 
 """
 Defines Gaussian PDF
@@ -43,15 +43,14 @@ function (GM::GaussianMixture{R})(X::AbstractArray{R,2}) where R <: Real
     return p
 end
 
+totalMass(GM::GaussianMixture) = sum(G.α for G in GM.Gs)
+
 function sample(GM::GaussianMixture{R,Vector{R}},n::Int) where R <: Real
     # determine proportion of samples from each Gaussian
-    totalMass = zero(R)
-    for k=1:length(GM.Gs)
-        totalMass += GM.Gs[k].α
-    end
+    total_mass = totalMass(GM)
     X = zeros(R,GM.Gs[1].d,0)
     for k=1:length(GM.Gs)-1
-        X = [X sample(GM.Gs[k],Int(round(n*GM.Gs[k].α/totalMass)))]
+        X = [X sample(GM.Gs[k],Int(round(n*GM.Gs[k].α/total_mass)))]
     end
     X = [X sample(GM.Gs[end],n-size(X,2))]
     return X
