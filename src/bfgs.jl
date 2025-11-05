@@ -1,6 +1,24 @@
 """
-armijo(f,fk,dfk,xk,pk)
-Backtracked Armijo linesearch
+    armijo(f, fk, dfk, xk, pk; t=1.0, maxIter=10, c1=1e-4, b=0.5)
+
+Backtracking Armijo line search
+
+Finds step size t satisfying: f(xk + t*pk) ≤ fk + t*c1*⟨dfk, pk⟩
+
+# Arguments
+- `f`: Objective function (returns value and gradient)
+- `fk`: Current function value f(xk)
+- `dfk`: Current gradient ∇f(xk)
+- `xk`: Current iterate
+- `pk`: Search direction
+- `t`: Initial step size (default: 1.0)
+- `maxIter`: Maximum backtracking iterations
+- `c1`: Armijo parameter (sufficient decrease)
+- `b`: Backtracking factor (multiplicative reduction)
+
+# Returns
+- `t`: Step size satisfying Armijo condition
+- `LS`: Number of line search iterations (-1 if failed)
 """
 function armijo(f::Function,fk,dfk,xk,pk;t=1.0, maxIter=10, c1=1e-4,b=0.5)
     LS = 1
@@ -21,13 +39,33 @@ end
 
 
 """
-bfgs(f,df,x)
-BFGS method for solving min_x f(x)
+    bfgs(f, fdf, x; H, maxIter=20, atol=1e-8, out=0, storeInterm=false, lineSearch, cb)
+
+BFGS quasi-Newton method for unconstrained optimization: min_x f(x)
+
+# Arguments
+- `f`: Objective function (for line search only)
+- `fdf`: Function returning (value, gradient)
+- `x::Vector`: Initial iterate
+- `H`: Initial inverse Hessian approximation (default: identity)
+- `maxIter`: Maximum iterations
+- `atol`: Absolute tolerance on ||∇f||
+- `out`: Verbosity level (0=final, 1=per-iter, -1=silent)
+- `storeInterm`: Store intermediate iterates
+- `lineSearch`: Line search function
+- `cb`: Callback function called each iteration
+
+# Returns
+- `x`: Final iterate
+- `flag`: Convergence flag (0=success, -1=maxiter, -3=linesearch fail)
+- `his`: Optimization history [f, ||∇f||, LS iters] per iteration
+- `X`: Intermediate iterates (if storeInterm=true)
+- `H`: Final inverse Hessian approximation
 """
 function bfgs(f::Function,fdf::Function,x::Vector;H=Matrix(1.0I,length(x),length(x)), maxIter=20,atol=1e-8,out::Int=0,storeInterm::Bool=false,
 	lineSearch::Function=(f,fk,dfk,xk,pk,ak)->armijo(f,fk,dfk,xk,pk,maxIter=30,t=ak),cb::Function=()->())
 
-    his = zeros(maxIter,3)
+    his = zeros(maxIter,3)  # his = history: [f_val, grad_norm, linesearch_iters]
     # I   = speye(length(x))
     X   = (storeInterm) ? zeros(length(x),maxIter) : []
     fk,dfk  = fdf(x)
