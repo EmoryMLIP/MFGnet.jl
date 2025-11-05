@@ -1,0 +1,29 @@
+# Core Dependencies
+torch>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# Experiment Tracking & Logging
+tensorboard>=2.12.0
+# wandb>=0.15.0  # Uncomment if using Weights & Biases
+# mlflow>=2.5.0  # Uncomment if using MLflow
+
+# Configuration Management
+pyyaml>=6.0
+hydra-core>=1.3.0  # For complex config management
+
+# Hyperparameter Optimization (optional)
+# optuna>=3.2.0
+
+# Plotting and Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Utilities
+tqdm>=4.65.0
+pandas>=2.0.0
+
+# Development
+pytest>=7.3.0
+black>=23.3.0
+flake8>=6.0.0

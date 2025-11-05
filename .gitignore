@@ -1,0 +1,26 @@
+# Output files
+*.jld
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Julia
+*.jl.*.cov
+*.jl.cov
+*.jl.mem
+/Manifest.toml
+
+# Documentation planning (kept locally, not committed)
+PRD.md
+
+# Test artifacts
+test/*.jld
+examples/**/*.jld

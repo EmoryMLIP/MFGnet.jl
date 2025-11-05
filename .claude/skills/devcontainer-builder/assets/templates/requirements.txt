@@ -1,0 +1,23 @@
+# Core scientific computing
+numpy
+scipy
+matplotlib
+
+# Testing and development
+pytest
+pytest-cov
+debugpy
+
+# Code quality
+ruff
+black
+isort
+mypy
+
+# Jupyter and plotting
+jupyter
+ipykernel
+ipywidgets
+plotly
+
+# Add your project-specific dependencies below

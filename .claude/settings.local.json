@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(julia-developer)",
+      "Skill(devcontainer-builder)",
+      "Bash(docker buildx build:*)",
+      "Bash(cat:*)",
+      "Bash(docker run:*)",
+      "Bash(docker volume rm:*)",
+      "Bash(docker rmi:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "name": "MFGnet.jl Dev Container",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "..",
+    "args": {
+      "TZ": "America/New_York"
+    }
+  },
+
+  // Container runtime arguments
+  "runArgs": [
+    "--name=mfgnet-devcontainer"
+  ],
+
+  // Mount points
+  "mounts": [
+    // Persist Julia packages across rebuilds
+    "source=mfgnet-julia-packages,target=/home/vscode/.julia,type=volume",
+    // Persist Claude Code config
+    "source=claude-code-config,target=/home/vscode/.config/@anthropic-ai/claude-code,type=volume",
+    // Persist shell history
+    "source=mfgnet-shell-history,target=/home/vscode/.zsh_history,type=volume"
+  ],
+
+  // VS Code customizations
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        // Claude Code
+        "anthropic.claude-code",
+
+        // Julia language support
+        "julialang.language-julia",
+
+        // Git integration
+        "eamodio.gitlens",
+
+        // General development
+        "ms-vscode.atom-keybindings",
+        "visualstudioexptteam.vscodeintellicode"
+      ],
+
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "zsh": {
+            "path": "/bin/zsh"
+          }
+        },
+
+        // Julia settings
+        "julia.enableTelemetry": false,
+        "julia.execution.resultType": "both",
+
+        // Editor settings
+        "editor.formatOnSave": true,
+        "editor.rulers": [92],
+        "files.insertFinalNewline": true,
+        "files.trimTrailingWhitespace": true
+      }
+    }
+  },
+
+  // Features to install
+  "features": {},
+
+  // Post-create commands (run once after container creation)
+  // Disabled to avoid automatic precompilation - run manually: julia -e 'using Pkg; Pkg.activate("."); Pkg.instantiate()'
+  // "postCreateCommand": "",
+
+  // Post-start commands (run every time container starts)
+  "postStartCommand": "sudo npm update -g @anthropic-ai/claude-code",
+
+  // Wait for postStartCommand to complete before allowing user interaction
+  "waitFor": "postStartCommand",
+
+  // Use non-root user
+  "remoteUser": "vscode",
+
+  // Forward common ports (if needed)
+  "forwardPorts": [],
+
+  // Container environment variables
+  "containerEnv": {
+    "JULIA_NUM_THREADS": "auto"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "Julia Development Container",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+
+  "features": {
+    "ghcr.io/devcontainers-contrib/features/julia-debian:1": {
+      "version": "1.10"
+    }
+  },
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "julialang.language-julia",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "julia.executablePath": "/usr/local/julia/bin/julia",
+        "julia.enableTelemetry": false,
+        "julia.debuggerDefaultCompiled": [],
+        "files.associations": {
+          "*.jl": "julia"
+        }
+      }
+    }
+  },
+
+  "postCreateCommand": "julia -e 'using Pkg; pkg\"add Revise OhMyREPL BenchmarkTools Debugger Infiltrator Test\"'",
+
+  "remoteUser": "vscode"
+}
