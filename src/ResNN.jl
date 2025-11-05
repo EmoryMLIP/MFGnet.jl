@@ -156,7 +156,7 @@ end
 function getGradAndHessian(N::ResNN{R},dZ::AbstractArray{R},d2Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
     for k=nLayers(N):-1:1
-        N.tmp[k,2] = dZ
+        N.tmpZ[k] = dZ
         Θk = linInter1D(N.ts[k],T,Θ)
         hk = N.ts[k+1]-N.ts[k]
         ddZ,d2Z1 =   getGradAndHessian(N.layer,dZ,N.tmpS[k],Θk)

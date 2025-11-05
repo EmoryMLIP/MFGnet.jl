@@ -17,7 +17,7 @@ Gaussian(d::Int) = Gaussian(d,ones(d),zeros(d),1.0)
 Gaussian(d::Int,σ::AbstractVector{R},μ::AbstractVector{R},α=one(R)) where R<: Real = Gaussian(d,σ,μ,α)
 
 mean(G::Gaussian) = G.μ
-std(G::Gaussian) = G.μ
+std(G::Gaussian) = sqrt.(G.σ)
 
 function (G::Gaussian)(X::AbstractArray{R,2}) where R <: Real
     t1 = G.α./( (R(2*pi))^(G.d/2) * sqrt(prod(G.σ)))
