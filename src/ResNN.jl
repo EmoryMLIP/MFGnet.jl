@@ -27,38 +27,46 @@ ResNN(layer=SingleLayer(),ts::Vector{R}=[0.0 0.5 1.0]) where R<:Real =
 nLayers(N::ResNN) = length(N.ts)-1
 
 """
-evaluate layer for current weights Θ=(K,b)
+    (N::ResNN)(S, Θ)
+
+Forward Euler time stepping for residual network ODE
+
+Solves dS/dt = σ(K(t)*S + b(t)) using forward Euler: S^(k+1) = S^k + h_k * σ(K(t_k)*S^k + b(t_k))
 """
 function (N::ResNN{R})(S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
-	# Pre-allocate vector for better performance (avoid tuple appending)
+	# Pre-allocate storage for intermediate states (needed for backward pass)
 	N.tmpS = Vector{Any}(undef, nLayers(N))
     for k=1:nLayers(N)
-		N.tmpS[k] = S
-        hk = R(N.ts[k+1]-N.ts[k])
-        Θk = linInter1D(N.ts[k],T,Θ)
-        S += hk .* N.layer(S,Θk)
+		N.tmpS[k] = S                          # Cache state at time t_k
+        hk = R(N.ts[k+1]-N.ts[k])              # Time step size
+        Θk = linInter1D(N.ts[k],T,Θ)           # Interpolate parameters at t_k
+        S += hk .* N.layer(S,Θk)               # Forward Euler step
     end
     return S
 end
 
 """
-compute matvec J_S N(S,Θ)'*Z
+    getJSTmv(N::ResNN, Z, S, Θ)
+
+Backward pass: compute Jacobian transpose matrix-vector product
+
+Implements reverse-mode AD by backward time stepping: Z^(k-1) = Z^k + h_k * J_layer' * Z^k
 """
 function getJSTmv(N::ResNN{R},Z::AbstractVector{R},S::AbstractArray{R},Θ)  where R <: Real
     T = maximum(N.ts)
     hk = R(N.ts[end]-N.ts[end-1])
     Θk = linInter1D(N.ts[end-1],T,Θ)
-    # Pre-allocate vector for better performance (avoid tuple appending)
+    # Pre-allocate storage for adjoint variables (needed for parameter gradients)
     N.tmpZ = Vector{Any}(undef, nLayers(N)+1)
     N.tmpZ[nLayers(N)] = Z
-    Z = Z .+ hk .* getJSTmv(N.layer,Z,N.tmpS[end],Θk)
+    Z = Z .+ hk .* getJSTmv(N.layer,Z,N.tmpS[end],Θk)  # Last time step
 
-    for k=nLayers(N)-1:-1:1
-		N.tmpZ[k] = Z
+    for k=nLayers(N)-1:-1:1                             # Backward in time
+		N.tmpZ[k] = Z                                    # Cache adjoint at t_k
         hk = N.ts[k+1]-N.ts[k]
         Θk = linInter1D(N.ts[k],T,Θ)
-        Z +=  hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)
+        Z +=  hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)   # Adjoint Euler step
     end
     return Z
 end

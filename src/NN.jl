@@ -24,28 +24,35 @@ NN(layers=[SingleLayer();SingleLayer()]) = NN(layers,(),())
 nLayers(N::NN) = length(N.layers)
 
 """
-evaluate layer for current weights Θ=(K,b)
-"""
+    (N::NN)(S, Θ)
 
+Forward pass through multi-layer network
+
+Computes S = Lₙ ∘ Lₙ₋₁ ∘ ... ∘ L₁(S₀) by sequential layer composition
+"""
 function (N::NN)(S::AbstractArray{R},Θ) where R <: Real
-	# Pre-allocate vector for better performance (avoid tuple appending)
+	# Pre-allocate storage for intermediate states (needed for backward pass)
 	N.tmpS = Vector{Any}(undef, nLayers(N))
 	for k=1: nLayers(N)
-		N.tmpS[k] = S
-		S = N.layers[k](S,Θ[k]) :: Array{R,2}
+		N.tmpS[k] = S                         # Cache input to layer k
+		S = N.layers[k](S,Θ[k]) :: Array{R,2} # Apply layer k
     end
     return S
 end
 
 """
-compute matvec J_S N(S,Θ)'*Z
+    getJSTmv(N::NN, Z, S, Θ)
+
+Backward pass: chain rule through all layers
+
+Computes gradient via reverse composition: Z₀ = J_L₁' ∘ J_L₂' ∘ ... ∘ J_Lₙ'(Zₙ)
 """
 function getJSTmv(N::NN,Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
-	# Pre-allocate vector for better performance (avoid tuple appending)
+	# Pre-allocate storage for adjoint variables at each layer
 	N.tmpZ = Vector{Any}(undef, nLayers(N))
-    for k=nLayers(N):-1:1
-        N.tmpZ[k] = Z
-        Z = getJSTmv(N.layers[k],Z,N.tmpS[k],Θ[k])
+    for k=nLayers(N):-1:1                          # Backward through layers
+        N.tmpZ[k] = Z                              # Cache adjoint before layer k
+        Z = getJSTmv(N.layers[k],Z,N.tmpS[k],Θ[k]) # Backprop through layer k
     end
     return Z
 end

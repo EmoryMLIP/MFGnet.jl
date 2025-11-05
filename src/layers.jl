@@ -29,16 +29,26 @@ PotentialNN() = PotentialNN(NN(),[])
 PotentialNN(N) = PotentialNN(N,[])
 
 """
-getPotential(XT,Θ,layer::PotentialNN)
+    (Φ::PotentialNN)(XT, Θ)
 
-evaluate Φ(x,t) for current weights Θ=(K,w,b,A,c,z)
+Evaluate potential function Φ(x,t) = w'σ(K[x;t]+b) + ½[x;t]'A[x;t] + c'[x;t] + z
+
+# Parameters
+Θ = (w, ΘN, A, c, z) where A is symmetrized as ½(A+A')
 """
 function (Φ::PotentialNN)(XT::AbstractArray{R},Θ) where R <: Real
     (w,ΘN,A,c,z) = Θ
-    A = R(0.5)*(A'+A)
+    A = R(0.5)*(A'+A)                      # Symmetrize quadratic term
     return w' *  Φ.N(XT,ΘN) + R(0.5)*sum((A*XT).*XT,dims=1) + c'*XT .+ z
 end
 
+"""
+    getGradPotential(Φ::PotentialNN, XT, Θ)
+
+Compute gradient ∇Φ(x,t) = J_N'w + Ax + c
+
+Returns gradient vector for computing optimal velocity v = -∇_x Φ
+"""
 function getGradPotential(Φ::PotentialNN,XT::AbstractArray{R},Θ) where R <: Real
     (w,ΘN,A,c,z) = Θ
     A = R(0.5)*(A'+A)

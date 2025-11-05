@@ -33,7 +33,11 @@ function (N::SingleLayer)(S::AbstractArray{R},Θ::Tuple{AbstractArray{R,2},Abstr
 end
 
 """
-compute matvec J_S N(S,Θ)'*Z
+    getJSTmv(N::SingleLayer, Z, S, Θ)
+
+Compute Jacobian transpose matrix-vector product: J_S N(S,Θ)' * Z
+
+Used in backward pass for gradient computation via reverse-mode AD
 """
 function getJSTmv(N::SingleLayer,Z::AbstractArray{R},S::AbstractArray{R},Θ::Tuple{AbstractArray{R,2},AbstractArray{R,1}}) where R <: Real
     (K,b) = Θ
@@ -49,9 +53,12 @@ function getJSTmv(N::SingleLayer,Z::AbstractArray{R,3},S::AbstractArray{R},Θ::T
 end
 
 """
-compute hessian matvec
-"""
+    getTraceHessAndGrad(N::SingleLayer, w, S, Θ)
 
+Compute trace of Hessian and gradient simultaneously
+
+Returns (trH, Jac) where trH is tr(H·w) and Jac is the Jacobian for backprop
+"""
 function getTraceHessAndGrad(N::SingleLayer, w::AbstractArray{R},S::AbstractArray{R},Θ::Tuple{AbstractArray{R,2},AbstractArray{R,1}}) where R <: Real
     (d,nex) = size(S)
     (K,b) = Θ
@@ -130,7 +137,11 @@ end
 
 
 """
-compute matvec J_S N(S,Θ)*Z
+    getJSmv(N::SingleLayer, Z, S, Θ)
+
+Compute Jacobian matrix-vector product: J_S N(S,Θ) * Z
+
+Used in forward-mode AD and sensitivity analysis
 """
 function getJSmv(N::SingleLayer,Z::AbstractArray{R},S::AbstractArray{R},Θ::Tuple{AbstractArray{R,2},AbstractArray{R,1}}) where R <: Real
     (K,b) = Θ
@@ -150,11 +161,13 @@ end
 
 
 """
-compute matvec J_S(J_S N(S,Θ)'*Z(S))
+    getJSJSTmv(N::SingleLayer, dZ, d2Z, S, Θ)
 
-here we use product rule
+Compute Hessian matrix-vector product via product rule
 
-J_S N(S,Θ)'*dZ + J_S(N(S,Θ)'*Zfix)
+Computes J_S(J_S N(S,Θ)' * Z(S)) = J_S N(S,Θ)' * dZ + J_S(N(S,Θ)' * Z_fix)
+
+Used in second-order optimization (Newton, Gauss-Newton)
 """
 function getJSJSTmv(N::SingleLayer,dz::AbstractVector{R},d2z::AbstractArray{R},s::AbstractVector{R},Θ::Tuple{AbstractArray{R,2},AbstractArray{R,1}}) where R <: Real
     (K,b) = Θ
@@ -189,8 +202,15 @@ function getJSJSTmv(N::SingleLayer,dZ::AbstractArray{R},S::AbstractArray{R,2},Θ
     return reshape(KtdZK,size(K,2),size(K,2),nex)
 end
 
+"""
+    getGradAndHessian(N::SingleLayer, dZ, S, Θ)
+
+Compute gradient and Hessian w.r.t. input state S
+
+Returns (grad, hess) assuming d2Z=0 (no second-order input coupling)
+"""
 function getGradAndHessian(N::SingleLayer,dZ::AbstractArray{R},S::AbstractArray{R,2},Θ::Tuple{AbstractArray{R,2},AbstractArray{R,1}}) where R<:Real
-    # Here, no d2Z is give, so we assume it is zero
+    # Here, no d2Z is given, so we assume it is zero
     (K,b) = Θ
     t1 = K* S .+ b
     (d,nex) = size(t1)
