@@ -174,7 +174,7 @@ function getTraceHess(N::ResNN,S::AbstractArray{R},Θ) where R <: Real
     hk = N.ts[2]-N.ts[1]
 
     trH1,Jac = getTraceHessAndGrad(N.layer,N.tmpZ[1],N.tmpS[1],Θk)
-    Jac =  Matrix(R(1.0)*I,size(Jac,1),size(Jac,2)) .+ hk .* Jac
+    Jac =  Matrix{R}(I, size(Jac,1), size(Jac,2)) .+ hk .* Jac
     trH2, Jac = getTraceHessAndGrad(N,[],Jac,N.tmpS[2],Θ,2)
     return hk*trH1 + trH2
 end
@@ -201,7 +201,7 @@ function getTraceHessAndGrad(N::ResNN,S::AbstractArray{R},Θ) where R <: Real
     hk = N.ts[2]-N.ts[1]
 
     trH1,Jac = getTraceHessAndGrad(N.layer,N.tmpZ[1],N.tmpS[1],Θk)
-    Jac =  Matrix(R(1.0)*I,size(Jac,1),size(Jac,2)) .+ hk .* Jac
+    Jac =  Matrix{R}(I, size(Jac,1), size(Jac,2)) .+ hk .* Jac
     trH2, Jac = getTraceHessAndGrad(N,[],Jac,N.tmpS[2],Θ,2)
     return hk*trH1 + trH2, Jac
 end

@@ -14,7 +14,7 @@ for k=1:2
     @testset "derivative check $(Rs[k])" begin
     R = Rs[k]
     L = SingleLayer()
-    N = ResNN(L,Vector(range(R(0.0),stop=R(1.0),length=5)))
+    N = ResNN(L,Vector(range(R(0.0), R(1.0), length=5)))
 
     s = randn(R,d,nex)
     K = randn(R,d,d,nTh)

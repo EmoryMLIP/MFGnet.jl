@@ -94,7 +94,7 @@ function getTrace(H::AbstractArray{R}) where R <: Real
     return trH
 end
 
-getQ(XT::AbstractArray{R}) where R<: Real = Array(one(R)*I,size(XT,1),size(XT,1)-1)
+getQ(XT::AbstractArray{R}) where R<: Real = Matrix{R}(I, size(XT,1), size(XT,1)-1)
 
 function getQ(Φ::PotentialNN,XT::AbstractArray{R}) where R<: Real
     d = size(XT,1)

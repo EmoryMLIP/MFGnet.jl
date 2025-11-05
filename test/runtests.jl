@@ -31,3 +31,7 @@ end
     include("testSingleLayer.jl")
 end
 
+@testset "linInter1D" begin
+    include("testLinInter1D.jl")
+end
+
