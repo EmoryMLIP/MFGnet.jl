@@ -1,6 +1,14 @@
 export Gcomb, Gls, Gkl, Gls2, Gpref
 """
-combine different G's
+    Gcomb
+
+Combination of multiple terminal cost functionals
+
+# Formula
+G(U) = ∑ᵢ Gᵢ(U)
+
+# Fields
+- `Gs::Vector` - array of terminal cost functionals to sum
 """
 mutable struct Gcomb
     Gs::Array
@@ -21,7 +29,21 @@ function Base.show(io::IO, G::Gcomb)
 end
 
 """
-Least-Squares Terminal Cost
+    Gls
+
+Least-squares terminal cost functional
+
+Penalizes L² distance between terminal density ρ(T) and target ρ₁
+
+# Formula
+G(U) = μ/2 ∫(ρ(x,T) - ρ₁(x))² dx
+
+# Fields
+- `rho0` - initial density function ρ₀
+- `rho1` - target terminal density function ρ₁
+- `rho0x::Vector` - precomputed ρ₀(X₀) values
+- `rho1x::Vector` - precomputed ρ₁(X₀) values
+- `mu::Real` - penalty parameter μ
 """
 mutable struct Gls
     rho0
@@ -50,7 +72,21 @@ function getDeltaG(G::Gls,U::AbstractArray)
 end
 
 """
-KL Divergence Terminal Cost
+    Gkl
+
+Kullback-Leibler divergence terminal cost functional
+
+Penalizes KL divergence KL(ρ(T)||ρ₁) between terminal and target densities
+
+# Formula
+G(U) = μ ∫ρ(x,T) log(ρ(x,T)/ρ₁(x)) dx
+
+# Fields
+- `rho0` - initial density function ρ₀
+- `rho1` - target terminal density function ρ₁
+- `rho0x::Vector` - precomputed ρ₀(X₀) values
+- `rho1x::Vector` - precomputed ρ₁(X₀) values
+- `mu::Real` - penalty parameter μ
 """
 mutable struct Gkl
     rho0
@@ -78,7 +114,19 @@ end
 
 
 """
- Preference Terminal Cost
+    Gpref
+
+Preference terminal cost functional
+
+Penalizes deviation from preferred terminal positions via function Pref(x)
+
+# Formula
+G(U) = μ ∫Pref(x(T)) dx
+
+# Fields
+- `Pref::Function` - preference function mapping positions to costs
+- `rho0x::Vector` - precomputed ρ₀(X₀) values
+- `mu::Real` - penalty parameter μ
 """
 mutable struct Gpref
     Pref::Function  # preference function

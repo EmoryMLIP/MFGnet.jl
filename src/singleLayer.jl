@@ -1,22 +1,30 @@
 export SingleLayer
 
 """
-singleLayer
+    SingleLayer
 
-σ(K*s+b)
+Single neural network layer: σ(K*S + b)
 
-where K,b are trainable weights
+# Activation
+- mσ(x) = |x| + log(1 + exp(-2|x|)) - smooth ReLU variant
+- mdσ(x) = tanh(x) - first derivative
+- md2σ(x) = 1 - tanh²(x) - second derivative
 
+# Parameters
+Θ = (K, b) where K is weight matrix, b is bias vector
 """
 struct SingleLayer
 end
 
+# Activation functions
 mσ(x::AbstractArray{R}) where R<:Real = abs.(x)+log.(R(1) .+ exp.(-R(2)*abs.(x)))
 mdσ(x::AbstractArray{R}) where R<:Real = tanh.(x)
 md2σ(x::AbstractArray{R}) where R<:Real = one(eltype(x)) .- tanh.(x).^2
 
 """
-evaluate layer for current weights Θ=(K,b)
+    (N::SingleLayer)(S, Θ)
+
+Forward pass: σ(K*S + b). Evaluates layer for current weights Θ=(K,b).
 """
 function (N::SingleLayer)(S::AbstractArray{R},Θ::Tuple{AbstractArray{R,2},AbstractArray{R,1}}) where R <: Real
     (K,b) = Θ

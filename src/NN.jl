@@ -1,7 +1,17 @@
 export NN
 
 """
-Neural Network structure
+    NN
+
+Multi-layer neural network: S = Lₙ ∘ Lₙ₋₁ ∘ ... ∘ L₁(S₀)
+
+# Architecture
+Sequential composition of SingleLayer or ResNN blocks
+
+# Fields
+- `layers::Vector{Union{SingleLayer,ResNN}}` - ordered sequence of network layers
+- `tmpS` - cached intermediate states for backward pass
+- `tmpZ` - cached intermediate adjoint variables for gradient computation
 """
 mutable struct NN
     layers::Array{Union{SingleLayer,ResNN},1}

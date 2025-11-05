@@ -1,18 +1,28 @@
 export PotentialNN, getGradAndHessian
 
 """
-PotentialNN
+    PotentialNN
 
-defines neural network approximation of potential
+Neural network approximation of MFG potential function
 
-Φ(x,t) = w'*σ(K*[x;t]+b) + 0.5*[x' t]*A*[x;t] + c'*[x;t]
+# Formula
+Φ(x,t) = w'σ(K[x;t]+b) + ½[x;t]'A[x;t] + c'[x;t] + z
 
-where w,K,b,A,c are trainable weights
+# Parameters
+Θ = (w, ΘN, A, c, z) where:
+- w: output weights for neural network
+- ΘN: parameters for neural network N
+- A: quadratic term matrix (symmetrized)
+- c: linear term vector
+- z: scalar bias
 
+# Fields
+- `N` - underlying neural network (NN, ResNN, or SingleLayer)
+- `Q` - cached projection matrix for trace computation
 """
 mutable struct PotentialNN
     N
-    Q 
+    Q
 end
 
 PotentialNN() = PotentialNN(NN(),[])

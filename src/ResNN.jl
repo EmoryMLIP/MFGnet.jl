@@ -1,9 +1,18 @@
 export ResNN
 
 """
-ResNN
+    ResNN{R<:Real}
 
-Residual Neural Network structure
+Residual Neural Network: S(T) = S(0) + ∑ₖ hₖ σ(K(tₖ)*S(tₖ) + b(tₖ))
+
+# Architecture
+Discretized ODE: dS/dt = σ(K(t)*S(t) + b(t)) using forward Euler time stepping
+
+# Fields
+- `layer::SingleLayer` - neural network layer applied at each time step
+- `ts::Vector{R}` - time discretization points [t₀, t₁, ..., tₙ]
+- `tmpS` - cached intermediate states S(tₖ) for backward pass
+- `tmpZ` - cached intermediate adjoint variables for gradient computation
 """
 mutable struct ResNN{R<:Real}
     layer::SingleLayer   # description of layer

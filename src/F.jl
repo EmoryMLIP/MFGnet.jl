@@ -1,7 +1,15 @@
 export Fcomb, getDeltaF, Fp, Fe, F0
 
 """
-combine different F's
+    Fcomb
+
+Combination of multiple interaction functionals
+
+# Formula
+F(U,t) = ∑ᵢ Fᵢ(U,t)
+
+# Fields
+- `Fs::Vector` - array of interaction functionals to sum
 """
 mutable struct Fcomb
     Fs::Array
@@ -30,7 +38,17 @@ function Base.show(io::IO, F::Fcomb)
 end
 
 """
-F for potential
+    Fp{R<:Real}
+
+Spatial potential interaction functional
+
+Represents agents' spatial preferences via potential Q(x,t)
+
+# Fields
+- `Q` - spatial potential function (defines preferred agent locations)
+- `rho0` - initial density function
+- `rho0x::Vector{R}` - precomputed ρ₀(X) values
+- `λ::R` - penalty weight for this term
 """
 mutable struct Fp{R}
     Q # function for spatial potential (spacial preference for agents)
@@ -56,7 +74,16 @@ end
 
 
 """
-F for entropy
+    Fe{R<:Real}
+
+Entropy interaction functional
+
+Measures relative entropy H(ρ|ρ₀) = ∫ρ log(ρ/ρ₀)dx
+
+# Fields
+- `rho0` - reference density function ρ₀
+- `rho0x::Vector{R}` - precomputed log(ρ₀(X)) values
+- `λ::R` - penalty weight for entropy term
 """
 mutable struct Fe{R}
     rho0
@@ -76,6 +103,13 @@ function getDeltaF(F::Fe{R},U::AbstractArray{R},t::R) where R <: Real
     return F.λ.*(log.(F.rho0x) - vec(U[end-2,:]) .+ R(1))
 end
 
+"""
+    F0
+
+Zero interaction functional (no running cost)
+
+Used when there is no interaction term in the MFG objective
+"""
 struct F0
 end
 
