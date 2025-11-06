@@ -1,21 +1,18 @@
 export ResNN
 
 """
-ResNN
+    ResNN{R<:Real}
 
-Residual Neural Network structure
+Residual Neural Network: S(T) = S(0) + ∑ₖ hₖ σ(K(tₖ)*S(tₖ) + b(tₖ))
 
-# Type Parameter
-- `R<:Real`: Numeric type for computations and time points
+# Architecture
+Discretized ODE: dS/dt = σ(K(t)*S(t) + b(t)) using forward Euler time stepping
 
 # Fields
-- `layer::SingleLayer`: Description of the repeated layer
-- `ts::Vector{R}`: Time points for residual connections
-- `tmpS::Union{Tuple{},Vector{Any}}`: Temporary storage for forward pass states
-- `tmpZ::Union{Tuple{},Vector{Any}}`: Temporary storage for backward pass states
-
-# Note
-Temporary storage is initialized as empty tuples and allocated during computation.
+- `layer::SingleLayer` - neural network layer applied at each time step
+- `ts::Vector{R}` - time discretization points [t₀, t₁, ..., tₙ]
+- `tmpS` - cached intermediate states S(tₖ) for backward pass
+- `tmpZ` - cached intermediate adjoint variables for gradient computation
 """
 mutable struct ResNN{R<:Real}
     layer::SingleLayer   # description of layer
@@ -30,88 +27,57 @@ ResNN(layer=SingleLayer(),ts::Vector{R}=[0.0, 0.5, 1.0]) where R<:Real =
 nLayers(N::ResNN) = length(N.ts)-1
 
 """
-    (N::ResNN{R})(S::AbstractArray{R}, Θ) -> AbstractArray{R}
+    (N::ResNN)(S, Θ)
 
-Evaluate residual neural network forward pass.
+Forward Euler time stepping for residual network ODE
 
-# Arguments
-- `S::AbstractArray{R}`: Input features
-- `Θ`: Time-dependent parameters
-
-# Returns
-- Output features after all residual layers
-
-# Throws
-- `InvalidParameterError`: If input contains non-finite values
-- `ArgumentError`: If input is empty or time points are invalid
+Solves dS/dt = σ(K(t)*S + b(t)) using forward Euler: S^(k+1) = S^k + h_k * σ(K(t_k)*S^k + b(t_k))
 """
 function (N::ResNN{R})(S::AbstractArray{R},Θ) where R <: Real
-    # Input validation
-    if size(S, 1) == 0 || size(S, 2) == 0
-        throw(ArgumentError("Input S must be non-empty, got size $(size(S))"))
-    end
-
-    if !all(isfinite, S)
-        throw(InvalidParameterError("S", "contains non-finite values (NaN or Inf)", "ResNN forward pass"))
-    end
-
-    if length(N.ts) < 2
-        throw(InvalidParameterError("ts", "must have at least 2 time points, got $(length(N.ts))", "ResNN"))
-    end
-
     T = maximum(N.ts)
-	# Pre-allocate vector for better performance (avoid tuple appending)
-	# Use ignore_derivatives to avoid differentiation through cache mutations
-	ChainRulesCore.ignore_derivatives() do
-		N.tmpS = Vector{Any}(undef, nLayers(N))
-	end
+	# Pre-allocate storage for intermediate states (needed for backward pass)
+	N.tmpS = Vector{typeof(S)}(undef, nLayers(N))
     for k=1:nLayers(N)
-		ChainRulesCore.ignore_derivatives() do
-			N.tmpS[k] = S
-		end
-        hk = R(N.ts[k+1]-N.ts[k])
-        Θk = linInter1D(N.ts[k],T,Θ)
-        S += hk .* N.layer(S,Θk)
+		N.tmpS[k] = S                          # Cache state at time t_k
+        hk = R(N.ts[k+1]-N.ts[k])              # Time step size
+        Θk = linInter1D(N.ts[k],T,Θ)           # Interpolate parameters at t_k
+        S += hk .* N.layer(S,Θk)               # Forward Euler step
     end
     return S
 end
 
 """
-compute matvec J_S N(S,Θ)'*Z
+    getJSTmv(N::ResNN, Z, S, Θ)
+
+Backward pass: compute Jacobian transpose matrix-vector product
+
+Implements reverse-mode AD by backward time stepping: Z^(k-1) = Z^k + h_k * J_layer' * Z^k
 """
 function getJSTmv(N::ResNN{R},Z::AbstractVector{R},S::AbstractArray{R},Θ)  where R <: Real
     T = maximum(N.ts)
     hk = R(N.ts[end]-N.ts[end-1])
     Θk = linInter1D(N.ts[end-1],T,Θ)
-    # Pre-allocate vector - mutations wrapped in ignore since tmpZ is only for internal caching
-    ChainRulesCore.ignore_derivatives() do
-        N.tmpZ = Vector{Any}(nothing, nLayers(N)+1)
-        N.tmpZ[nLayers(N)] = Z
-    end
-    Z = Z .+ hk .* getJSTmv(N.layer,Z,N.tmpS[end],Θk)
+    # Pre-allocate storage for adjoint variables (needed for parameter gradients)
+    N.tmpZ = Vector{typeof(Z)}(undef, nLayers(N)+1)
+    N.tmpZ[nLayers(N)] = Z
+    Z = Z .+ hk .* getJSTmv(N.layer,Z,N.tmpS[end],Θk)  # Last time step
 
-    for k=nLayers(N)-1:-1:1
-		ChainRulesCore.ignore_derivatives() do
-			N.tmpZ[k] = Z
-		end
+    for k=nLayers(N)-1:-1:1                             # Backward in time
+		N.tmpZ[k] = Z                                    # Cache adjoint at t_k
         hk = N.ts[k+1]-N.ts[k]
         Θk = linInter1D(N.ts[k],T,Θ)
-        Z +=  hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)
+        Z +=  hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)   # Adjoint Euler step
     end
     return Z
 end
 
 function getJSTmv(N::ResNN{R},Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
-	# Pre-allocate vector - mutations wrapped in ignore since tmpZ is only for internal caching
-	ChainRulesCore.ignore_derivatives() do
-		N.tmpZ = Vector{Any}(nothing, nLayers(N)+1)
-		N.tmpZ[nLayers(N)+1] = 1
-	end
+	# Pre-allocate vector for better performance (avoid tuple appending)
+	N.tmpZ = Vector{typeof(Z)}(undef, nLayers(N)+1)
+	N.tmpZ[nLayers(N)+1] = Z  # Initialize with Z instead of scalar 1
     for k=nLayers(N):-1:1
-		ChainRulesCore.ignore_derivatives() do
-			N.tmpZ[k] = Z
-		end
+        N.tmpZ[k] = Z
         hk = N.ts[k+1]-N.ts[k]
         Θk = linInter1D(N.ts[k],T,Θ)
         Z +=  hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)
@@ -211,9 +177,7 @@ end
 function getGradAndHessian(N::ResNN{R},dZ::AbstractArray{R},d2Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
     for k=nLayers(N):-1:1
-        ChainRulesCore.ignore_derivatives() do
-            N.tmpZ[k] = dZ
-        end
+        N.tmpZ[k] = dZ
         Θk = linInter1D(N.ts[k],T,Θ)
         hk = N.ts[k+1]-N.ts[k]
         ddZ,d2Z1 =   getGradAndHessian(N.layer,dZ,N.tmpS[k],Θk)

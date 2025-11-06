@@ -1,23 +1,17 @@
 export NN
 
 """
-Neural Network structure
+    NN
 
-Type-parametric structure for composing layers with type-stable temporary storage.
+Multi-layer neural network: S = Lₙ ∘ Lₙ₋₁ ∘ ... ∘ L₁(S₀)
 
-# Type Parameter
-- `R<:Real`: Numeric type for computations (typically Float32 or Float64)
+# Architecture
+Sequential composition of SingleLayer or ResNN blocks
 
 # Fields
-- `layers::Vector{Union{SingleLayer,ResNN}}`: Vector of network layers
-- `tmpS::Union{Tuple{},Vector{Any}}`: Temporary storage for forward pass states
-- `tmpZ::Union{Tuple{},Vector{Any}}`: Temporary storage for backward pass states
-
-# Note
-Temporary storage is initialized as empty tuples and allocated during computation.
-The use of Vector{Any} is necessary because intermediate layer outputs may have
-different dimensions, making a fully type-stable design impractical without
-compile-time dimension information.
+- `layers::Vector{Union{SingleLayer,ResNN}}` - ordered sequence of network layers
+- `tmpS` - cached intermediate states for backward pass
+- `tmpZ` - cached intermediate adjoint variables for gradient computation
 """
 mutable struct NN{R<:Real}
     layers::Vector{Union{SingleLayer,ResNN}}
@@ -31,85 +25,48 @@ NN{R}(layers) where R<:Real = NN{R}(layers,(),())
 nLayers(N::NN) = length(N.layers)
 
 """
-    (N::NN)(S::AbstractArray{R}, Θ) -> Array{R,2}
+    (N::NN)(S, Θ)
 
-Evaluate neural network forward pass.
+Forward pass through multi-layer network
 
-# Arguments
-- `S::AbstractArray{R}`: Input features of size (d, nex)
-- `Θ`: Parameters for each layer (length must equal nLayers(N))
-
-# Returns
-- Output features after all layers
-
-# Throws
-- `DimensionMismatchError`: If parameter count doesn't match layer count
-- `InvalidParameterError`: If input contains non-finite values
-- `ArgumentError`: If input is empty
+Computes S = Lₙ ∘ Lₙ₋₁ ∘ ... ∘ L₁(S₀) by sequential layer composition
 """
 function (N::NN)(S::AbstractArray{R},Θ) where R <: Real
-    # Input validation
-    if size(S, 1) == 0 || size(S, 2) == 0
-        throw(ArgumentError("Input S must be non-empty, got size $(size(S))"))
-    end
-
-    if !all(isfinite, S)
-        throw(InvalidParameterError("S", "contains non-finite values (NaN or Inf)", "NN forward pass"))
-    end
-
-    nl = nLayers(N)
-    if length(Θ) != nl
-        throw(DimensionMismatchError(
-            "$nl parameter sets (one per layer)",
-            "$(length(Θ)) parameter sets",
-            "NN forward pass"
-        ))
-    end
-
-	# Pre-allocate vector for better performance (avoid tuple appending)
-	# Use ignore_derivatives to avoid differentiation through cache mutations
-	ChainRulesCore.ignore_derivatives() do
-		N.tmpS = Vector{Any}(undef, nl)
-	end
-	for k=1:nl
-		ChainRulesCore.ignore_derivatives() do
-			N.tmpS[k] = S
-		end
-		S = N.layers[k](S,Θ[k]) :: Array{R,2}
+	# Pre-allocate storage for intermediate states (needed for backward pass)
+	N.tmpS = Vector{typeof(S)}(undef, nLayers(N))
+	for k=1: nLayers(N)
+		N.tmpS[k] = S                         # Cache input to layer k
+		S = N.layers[k](S,Θ[k]) :: Array{R,2} # Apply layer k
     end
     return S
 end
 
 """
-compute matvec J_S N(S,Θ)'*Z
+    getJSTmv(N::NN, Z, S, Θ)
+
+Backward pass: chain rule through all layers
+
+Computes gradient via reverse composition: Z₀ = J_L₁' ∘ J_L₂' ∘ ... ∘ J_Lₙ'(Zₙ)
 """
 function getJSTmv(N::NN,Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
-	# Pre-allocate vector - mutations wrapped in ignore since tmpZ is only for internal caching
-	ChainRulesCore.ignore_derivatives() do
-		N.tmpZ = Vector{Any}(nothing, nLayers(N))
-	end
-    for k=nLayers(N):-1:1
-		ChainRulesCore.ignore_derivatives() do
-			N.tmpZ[k] = Z
-		end
-        Z = getJSTmv(N.layers[k],Z,N.tmpS[k],Θ[k])
+	# Pre-allocate storage for adjoint variables at each layer
+	N.tmpZ = Vector{typeof(Z)}(undef, nLayers(N))
+    for k=nLayers(N):-1:1                          # Backward through layers
+        N.tmpZ[k] = Z                              # Cache adjoint before layer k
+        Z = getJSTmv(N.layers[k],Z,N.tmpS[k],Θ[k]) # Backprop through layer k
     end
     return Z
 end
 
 function getGradAndHessian(N::NN,dZ::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
-	# Pre-allocate vector - mutations wrapped in ignore since tmpZ is only for internal caching
-	ChainRulesCore.ignore_derivatives() do
-		N.tmpZ = Vector{Any}(nothing, nLayers(N))
-		N.tmpZ[end] = dZ
-	end
+	# Pre-allocate vector for better performance (avoid tuple appending)
+	N.tmpZ = Vector{typeof(dZ)}(undef, nLayers(N))
+	N.tmpZ[end] = dZ
     dZ, d2Z = getGradAndHessian(N.layers[end],dZ,N.tmpS[end],Θ[end])
     # dZ  = getJSTmv(N.layers[end],dZ,N.tmp[end],Θ[end])
 
     for k=nLayers(N)-1:-1:1
-		ChainRulesCore.ignore_derivatives() do
-			N.tmpZ[k] = dZ
-		end
+        N.tmpZ[k] = dZ
         dZ,d2Z = getGradAndHessian(N.layers[k],dZ,d2Z,N.tmpS[k],Θ[k])
         # dZ  = getJSTmv(N.layers[k],dZ,N.tmp[k],Θ[k])
     end

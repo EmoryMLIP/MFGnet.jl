@@ -24,6 +24,8 @@ module MFGnet
     # Mesh utilities (self-contained, no dependencies)
     include("mesh_utils.jl")
 
+    # Helper functions used throughout (spatial_dim, spatial_positions, etc.)
+    include("mfg_helpers.jl")
     include("F.jl")
     include("G.jl")
     include("utils.jl")        # Must come before ResNN (ResNN uses append)

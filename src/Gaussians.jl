@@ -1,10 +1,18 @@
 export Gaussian, GaussianMixture, sample, totalMass
 
 """
-Defines Gaussian PDF
+    Gaussian{R<:Real, A<:AbstractVector{R}}
 
-p(x) = α/(sqrt.((2*π)^d * prod(σ) )) *  exp.(-sum(((x .- μ)./sqrt.(σ)).^2,dims=1)./2)
+Multivariate Gaussian probability density function
 
+# Formula
+p(x) = α/√((2π)^d ∏σᵢ) exp(-½∑((xᵢ-μᵢ)/√σᵢ)²)
+
+# Fields
+- `d::Int` - dimension of the space
+- `σ::A` - variance vector (diagonal covariance)
+- `μ::A` - mean vector
+- `α::R` - scaling factor for mixture components
 """
 struct Gaussian{R<:Real, A <: AbstractVector{R}}
     d::Int
@@ -17,7 +25,7 @@ Gaussian(d::Int) = Gaussian(d,ones(d),zeros(d),1.0)
 Gaussian(d::Int,σ::AbstractVector{R},μ::AbstractVector{R},α=one(R)) where R<: Real = Gaussian(d,σ,μ,α)
 
 mean(G::Gaussian) = G.μ
-std(G::Gaussian) = G.μ
+std(G::Gaussian) = sqrt.(G.σ)
 
 function (G::Gaussian)(X::AbstractArray{R,2}) where R <: Real
     t1 = G.α./( (R(2*pi))^(G.d/2) * sqrt(prod(G.σ)))
@@ -31,6 +39,17 @@ function sample(G::Gaussian{R,Vector{R}}, n) where R <: Real
     return X
 end
 
+"""
+    GaussianMixture{R<:Real, A<:AbstractVector{R}}
+
+Mixture of Gaussian distributions
+
+# Formula
+p(x) = ∑ᵢ pᵢ(x) where each pᵢ is a Gaussian component
+
+# Fields
+- `Gs::Vector{Gaussian{R,A}}` - array of Gaussian components
+"""
 struct GaussianMixture{R<:Real, A <: AbstractVector{R}}
     Gs::Array{Gaussian{R,A}}
 end

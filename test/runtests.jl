@@ -35,7 +35,7 @@ end
     include("testLinInter1D.jl")
 end
 
-# Phase 2 additions: Tests for previously untested modules
+# Additional comprehensive tests for previously untested modules
 
 @testset "MeanFieldGame" begin
     include("testMFG.jl")

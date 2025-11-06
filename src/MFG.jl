@@ -1,13 +1,28 @@
 export MeanFieldGame
 """
-    description of mean field game
+    MeanFieldGame{R<:Real}
 
-    min_θ ∫∫ α1⋅L(x,-∇Φ) dx + α2⋅F(ρ(⋅,t)) dt + α3⋅G(ρ(⋅,1))
-             + α4⋅∫∫ |-∂t ϕ(z(x,t),t) - δF(z(x,t),t) + ∇ϕ(z(x,t),t)| dx dt
-			 + α5⋅∫ |ϕ(z(x,1),1) -  G(z(x,t),ρ(z(x,t),1))| dx
+Mean Field Game optimization problem solver
 
-    s.t. ∂_t u = odefun(u,θ), u(0) = [x;0;0;0;0]
+# Objective
+min_Θ α₁∫L(x,-∇Φ)dx + α₂∫F(ρ)dt + α₃G(ρ(T)) + α₄∫|HJ residual|dt + α₅|HJ terminal|
 
+subject to: ∂ₜu = odefun(u,Θ,t), u(0) = [x₀; 0; 0; 0; 0]
+
+# Fields
+- `F` - interaction term functional or array
+- `G` - terminal cost functional or array
+- `X0::AbstractArray{R}` - initial particle positions (training points)
+- `rho0` - initial density function ρ₀(x)
+- `w::Vector{R}` - quadrature weights for Monte Carlo integration
+- `rho0x::Vector{R}` - precomputed ρ₀(X0) for efficiency
+- `Φ` - potential function approximator (e.g., PotentialNN)
+- `α::Vector{R}` - penalty weights [α₁,α₂,α₃,α₄,α₅] for objective terms
+- `stepper` - time integration scheme (e.g., RK1Step)
+- `tspan::Vector{R}` - time interval [t₀, T]
+- `nt` - number of time steps for ODE integration
+- `UN` - state [X; log(det); costL; costF; costHJ] after forward solve
+- `cs` - cost components [costL, costF, costG, costHJ, costHJfinal]
 """
 mutable struct MeanFieldGame{R}
     F # function or array for interaction term

@@ -1,37 +1,57 @@
 export PotentialNN, getGradAndHessian
 
 """
-PotentialNN
+    PotentialNN
 
-defines neural network approximation of potential
+Neural network approximation of MFG potential function
 
-Φ(x,t) = w'*σ(K*[x;t]+b) + 0.5*[x' t]*A*[x;t] + c'*[x;t]
+# Formula
+Φ(x,t) = w'σ(K[x;t]+b) + ½[x;t]'A[x;t] + c'[x;t] + z
 
-where w,K,b,A,c are trainable weights
+# Parameters
+Θ = (w, ΘN, A, c, z) where:
+- w: output weights for neural network
+- ΘN: parameters for neural network N
+- A: quadratic term matrix (symmetrized)
+- c: linear term vector
+- z: scalar bias
 
+# Fields
+- `N` - underlying neural network (NN, ResNN, or SingleLayer)
+- `Q` - cached projection matrix for trace computation
 """
 mutable struct PotentialNN
     N
-    Q 
+    Q
 end
 
 PotentialNN() = PotentialNN(NN(),[])
 PotentialNN(N) = PotentialNN(N,[])
 
 """
-getPotential(XT,Θ,layer::PotentialNN)
+    (Φ::PotentialNN)(XT, Θ)
 
-evaluate Φ(x,t) for current weights Θ=(K,w,b,A,c,z)
+Evaluate potential function Φ(x,t) = w'σ(K[x;t]+b) + ½[x;t]'A[x;t] + c'[x;t] + z
+
+# Parameters
+Θ = (w, ΘN, A, c, z) where A is symmetrized as ½(A+A')
 """
 function (Φ::PotentialNN)(XT::AbstractArray{R},Θ) where R <: Real
     (w,ΘN,A,c,z) = Θ
-    A = R(0.5)*(A'+A)
-    return w' *  Φ.N(XT,ΘN) + R(0.5)*sum((A*XT).*XT,dims=1) + c'*XT .+ z
+    A = symmetrize(A)                      # Symmetrize quadratic term
+    return w' *  Φ.N(XT,ΘN) + 0.5*sum((A*XT).*XT,dims=1) + c'*XT .+ z
 end
 
+"""
+    getGradPotential(Φ::PotentialNN, XT, Θ)
+
+Compute gradient ∇Φ(x,t) = J_N'w + Ax + c
+
+Returns gradient vector for computing optimal velocity v = -∇_x Φ
+"""
 function getGradPotential(Φ::PotentialNN,XT::AbstractArray{R},Θ) where R <: Real
     (w,ΘN,A,c,z) = Θ
-    A = R(0.5)*(A'+A)
+    A = symmetrize(A)
     nex = size(XT,2)
     # t1 = Φ.N(XT,ΘN) # run fwd prop to populate N.tmp
     G1 = getJSTmv(Φ.N,w,XT,ΘN)
@@ -48,7 +68,7 @@ end
 
 function getHessian(Φ::PotentialNN,XT::AbstractVector{R},Θ) where R <: Real
     (w,ΘN,A,c,z) = Θ
-    A = R(0.5)*(A'+A)
+    A = symmetrize(A)
     # t1 = Φ.N(XT,ΘN) # run fwd prop to populate N.tmp
     H1,G = getJSJSTmv(Φ.N,w,XT,ΘN)
     return H1 .+ A, G+ A*XT .+ c
@@ -58,7 +78,7 @@ end
 function getHessian(Φ::PotentialNN,XT::AbstractArray{R},Θ) where R <: Real
     nex = size(XT,2)
     (w,ΘN,A,c,z) = Θ
-    A = R(0.5)*(A'+A)
+    A = symmetrize(A)
 
     # t1 = Φ.N(XT,ΘN) # run fwd prop to populate N.tmp
     H1,G = getJSJSTmv(Φ.N,w,XT,ΘN)
@@ -71,7 +91,7 @@ compute gradient and Hessian of Φ w.r.t. input features
 function getGradAndHessian(Φ::PotentialNN,XT::AbstractArray{R},Θ) where R <: Real
     nex = size(XT,2)
     (w,ΘN,A,c,z) = Θ
-    A = R(0.5)*(A'+A)
+    A = symmetrize(A)
     G,H = getGradAndHessian(Φ.N,w,XT,ΘN)
     return G+ A*XT .+ c, H .+ A
 end
@@ -127,7 +147,7 @@ end
 
 function getTraceHess(Φ::PotentialNN,XT::AbstractArray{R},Θ) where R <: Real
     (w,ΘN,A,c,z) = Θ
-    A = R(0.5)*(A'+A)
+    A = symmetrize(A)
 
     d = size(XT,1)
     # Wrap getQ in ignore_derivatives to prevent differentiation through matrix construction

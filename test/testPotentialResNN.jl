@@ -57,7 +57,7 @@ for k=1:2
         E1 = norm(Φ0+h*dΦds - Φt)
         E2 = norm(Φ0+h*dΦds+0.5*h^2*curv - Φt)
 
-        @printf("h=%1.3e\t\tE0=%1.3e\tE1=%1.3e\tE1=%1.3e\n",h,E0,E1,E2)
+        @printf("h=%1.3e\t\tE0=%1.3e\tE1=%1.3e\tE2=%1.3e\n",h,E0,E1,E2)
     end
     @test true
     end

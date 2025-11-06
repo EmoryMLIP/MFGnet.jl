@@ -1,4 +1,20 @@
+"""
+    linInter1D(tk, T, Θ)
 
+Linear interpolation of time-dependent parameters at time tk ∈ [0,T]
+
+# Arguments
+- `tk::Real`: Query time point
+- `T::Real`: Final time
+- `Θ`: Parameter array/tuple with time as last dimension
+
+# Algorithm
+Assumes uniform time grid with Nt nodes: t_i = (i-1)*H where H = T/(Nt-1)
+For tk ∈ [t_i, t_{i+1}], returns weighted average: w*Θ[i] + (1-w)*Θ[i+1]
+
+# Returns
+Parameters interpolated at time tk
+"""
 function linInter1D(tk::R,T::R,Θ::Tuple{AbstractArray{R},AbstractArray{R}}) where R <: Real
     Θ1 = linInter1D(tk,T,Θ[1])
     Θ2 = linInter1D(tk,T,Θ[2])
@@ -12,92 +28,36 @@ function linInter1D(tk::R,T::R,Θ::Tuple) where R <: Real
 end
 
 """
-    linInter1D(tk::R, T::R, Θ::AbstractArray{R,2}) where R <: Real
+    linInter1D(tk::R, T::R, Θ::AbstractArray{R}) where R <: Real
 
-Linear interpolation in time for 2D parameter arrays.
-
-# Arguments
-- `tk::R`: Query time point
-- `T::R`: Final time (defines the time span [0,T])
-- `Θ::AbstractArray{R,2}`: Parameter array of size (d, Nt) where Nt is number of time points
-
-# Returns
-- Interpolated parameters at time tk
-
-# Note
-Time values outside [0,T] are clamped to the boundaries to ensure robustness
-in numerical ODE integration where small floating-point errors might push tk
-slightly outside the valid range.
-"""
-function linInter1D(tk::R,T::R,Θ::AbstractArray{R,2}) where R <: Real
-    Nt = size(Θ,2)
-
-    # Handle edge case: single time point
-    if Nt < 2
-        return Θ[:,1]
-    end
-
-    # Clamp time to valid range [0, T] for numerical robustness
-    tk_clamped = clamp(tk, zero(R), T)
-
-    H = T/(Nt-1)  # assume nodal discretization for Θ
-    idl = Int64(floor(tk_clamped/H)) + 1
-
-    # Ensure index is within bounds
-    idl = clamp(idl, 1, Nt)
-
-    if idl == Nt
-        # At or past final time point
-        return Θ[:,Nt]
-    else
-        # Interpolate between idl and idl+1
-        w = ((H*idl)-tk_clamped)/H
-        w = clamp(w, zero(R), one(R))  # Ensure valid interpolation weight
-        return w .* Θ[:,idl] + (one(R)-w) .* Θ[:,idl+1]
-    end
-end
-
-"""
-    linInter1D(tk::R, T::R, Θ::AbstractArray{R,3}) where R <: Real
-
-Linear interpolation in time for 3D parameter arrays.
+Linear interpolation in time for parameter arrays of any dimension.
 
 # Arguments
 - `tk::R`: Query time point
 - `T::R`: Final time (defines the time span [0,T])
-- `Θ::AbstractArray{R,3}`: Parameter array of size (d1, d2, Nt) where Nt is number of time points
+- `Θ::AbstractArray{R}`: Parameter array where time is the last dimension
+
+# Algorithm
+Assumes uniform time grid with Nt nodes: t_i = (i-1)*H where H = T/(Nt-1)
+For tk ∈ [t_i, t_{i+1}], returns weighted average: w*Θ[...,i] + (1-w)*Θ[...,i+1]
 
 # Returns
-- Interpolated parameters at time tk of size (d1, d2)
-
-# Note
-Time values outside [0,T] are clamped to the boundaries to ensure robustness.
+Interpolated parameters at time tk
 """
-function linInter1D(tk::R,T::R,Θ::AbstractArray{R,3}) where R <: Real
-    Nt = size(Θ,3)
+function linInter1D(tk::R,T::R,Θ::AbstractArray{R}) where R <: Real
+    # Unified interpolation for any dimensional array (time is last dimension)
+    time_dim = ndims(Θ)
+    Nt = size(Θ, time_dim)
+    H = T/(Nt-1)  # Grid spacing: assume nodal discretization for Θ
+    idl = Int64(floor(tk/H))+1  # idl = index_left: left boundary of interval
+    w = ((H*idl)-tk)/H        # w = weight for left node
 
-    # Handle edge case: single time point
-    if Nt < 2
-        return Θ[:,:,1]
-    end
-
-    # Clamp time to valid range [0, T] for numerical robustness
-    tk_clamped = clamp(tk, zero(R), T)
-
-    H = T/(Nt-1)  # assume nodal discretization for Θ
-    idl = Int64(floor(tk_clamped/H)) + 1
-
-    # Ensure index is within bounds
-    idl = clamp(idl, 1, Nt)
-
-    if idl == Nt
-        # At or past final time point
-        Θk = Θ[:,:,Nt]
+    if idl==0
+        return selectdim(Θ, time_dim, idl+1)
+    elseif idl==Nt
+        return selectdim(Θ, time_dim, idl)
     else
-        # Interpolate between idl and idl+1
-        w = ((H*idl)-tk_clamped)/H
-        w = clamp(w, zero(R), one(R))  # Ensure valid interpolation weight
-        Θk = w .* Θ[:,:,idl] + (one(R)-w) .* Θ[:,:,idl+1]
+        # Linear interpolation: w*Θ[...,idl] + (1-w)*Θ[...,idl+1]
+        return w .* selectdim(Θ, time_dim, idl) .+ (one(R)-w) .* selectdim(Θ, time_dim, idl+1)
     end
-    return Θk
 end
