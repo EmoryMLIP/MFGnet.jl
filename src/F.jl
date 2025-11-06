@@ -33,7 +33,7 @@ end
 function Base.show(io::IO, F::Fcomb)
   print(io, F.Fs[1])
   for k=2:length(F.Fs)
-      print(io, " + $(F.Fs[1])")
+      print(io, " + $(F.Fs[k])")  # Fixed: was F.Fs[1], should be F.Fs[k]
   end
 end
 

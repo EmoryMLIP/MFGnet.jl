@@ -58,10 +58,18 @@ function Base.show(io::IO, G::Gls)
 end
 
 function (G::Gls)(U::AbstractArray{R}) where R <: Real
+    d = size(U,1)-4
 
-    d   = size(U,1)-4
-    return G.mu*R(0.5)* ( G.rho0x./ exp.(-U[d+1,:]) - G.rho1(U[1:d,:]) ).^2 .* (exp.(-U[d+1,:])./G.rho0x)
+    # Compute exp once and reuse (was computed twice - performance bug!)
+    detDy = exp.(-U[d+1, :])           # det(Dy) from log-determinant
+    rho_T = G.rho0x ./ detDy           # Terminal density via change of variables
+    rho_target = G.rho1(U[1:d, :])     # Target density at terminal positions
 
+    # Least-squares cost: μ/2 ∫(ρ(T) - ρ₁)² · (ρ₀/ρ(T)) dx
+    diff = rho_T - rho_target
+    weight = detDy ./ G.rho0x
+
+    return (G.mu / 2) .* diff.^2 .* weight
 end
 
 function getDeltaG(G::Gls,U::AbstractArray)
