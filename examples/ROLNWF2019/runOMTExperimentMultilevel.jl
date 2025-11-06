@@ -1,6 +1,6 @@
 using Flux
 using LinearAlgebra
-using jInv.Mesh
+include("mesh.jl")
 using Printf
 using Plots
 using JLD
