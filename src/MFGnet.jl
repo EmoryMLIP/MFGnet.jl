@@ -16,6 +16,12 @@ module MFGnet
     using LinearAlgebra
 	using Zygote
     using Printf
+    using DifferentialEquations
+    using DiffEqSensitivity
+    using Optimization
+    using OptimizationOptimJL
+    using ComponentArrays
+    import Flux  # For Flux.params in optimization_interface.jl
 
     include("mfg_helpers.jl")  # Helper functions used throughout
     include("F.jl")
@@ -28,10 +34,12 @@ module MFGnet
     include("layers.jl")       # Uses NN() in PotentialNN constructor
     include("timeStepping.jl") # Must come before odefun and MFG
     include("odefun.jl")       # Must come before MFG
+    include("diffeq_interface.jl")  # DifferentialEquations.jl wrapper
     include("MFG.jl")          # Uses odefun, timeStepping, layers
     include("param2vec.jl")
     include("Gaussians.jl")
     include("bfgs.jl")
+    include("optimization_interface.jl")  # Optimization.jl wrapper
 
 
 end  # module MFGnet
