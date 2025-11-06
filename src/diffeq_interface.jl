@@ -15,7 +15,6 @@ ecosystem, enabling:
 """
 
 using DifferentialEquations
-using DiffEqSensitivity
 using LinearAlgebra
 
 export AdaptiveConfig, RK4Config, RK1Config
@@ -35,7 +34,7 @@ Adaptive ODE solver configuration using Tsit5 (default) or other algorithms
 - `alg`: ODE algorithm (default: Tsit5())
 - `reltol::Real`: Relative tolerance (default: 1e-6)
 - `abstol::Real`: Absolute tolerance (default: 1e-8)
-- `sensealg`: Sensitivity algorithm for gradients (default: InterpolatingAdjoint(autojacvec=ZygoteVJP()))
+- `sensealg`: Sensitivity algorithm for gradients (default: nothing, uses DifferentialEquations.jl default)
 - `save_everystep::Bool`: Save full trajectory (default: false)
 - `saveat`: Specific times to save (default: nothing)
 - `callback`: DifferentialEquations.jl callback (default: nothing)
@@ -56,7 +55,7 @@ function AdaptiveConfig(;
     alg=Tsit5(),
     reltol=1e-6,
     abstol=1e-8,
-    sensealg=InterpolatingAdjoint(autojacvec=ZygoteVJP()),
+    sensealg=nothing,
     save_everystep=false,
     saveat=nothing,
     callback=nothing,
@@ -75,7 +74,7 @@ Fixed-step RK4 configuration matching legacy behavior
 - `tspan::Vector`: Time interval [t0, tf]
 
 # Keyword Arguments
-- `sensealg`: Sensitivity algorithm (default: InterpolatingAdjoint(autojacvec=ZygoteVJP()))
+- `sensealg`: Sensitivity algorithm (default: nothing, uses DifferentialEquations.jl default)
 - `save_everystep::Bool`: Save full trajectory (default: false)
 - `callback`: DifferentialEquations.jl callback (default: nothing)
 """
@@ -89,7 +88,7 @@ struct RK4Config{SENS,CB}
 end
 
 function RK4Config(nt, tspan;
-    sensealg=InterpolatingAdjoint(autojacvec=ZygoteVJP()),
+    sensealg=nothing,
     save_everystep=false,
     callback=nothing)
 
@@ -107,7 +106,7 @@ Fixed-step Forward Euler configuration matching legacy behavior
 - `tspan::Vector`: Time interval [t0, tf]
 
 # Keyword Arguments
-- `sensealg`: Sensitivity algorithm (default: InterpolatingAdjoint(autojacvec=ZygoteVJP()))
+- `sensealg`: Sensitivity algorithm (default: nothing, uses DifferentialEquations.jl default)
 - `save_everystep::Bool`: Save full trajectory (default: false)
 - `callback`: DifferentialEquations.jl callback (default: nothing)
 """
@@ -121,7 +120,7 @@ struct RK1Config{SENS,CB}
 end
 
 function RK1Config(nt, tspan;
-    sensealg=InterpolatingAdjoint(autojacvec=ZygoteVJP()),
+    sensealg=nothing,
     save_everystep=false,
     callback=nothing)
 
@@ -216,14 +215,25 @@ function solve_mfg_ode(J::MeanFieldGame{R}, Θ, config::AdaptiveConfig) where R
     prob = ODEProblem(mfg_ode!, u0, tspan, p)
 
     # Solve with adaptive method
-    sol = solve(prob, config.alg;
-                reltol=config.reltol,
-                abstol=config.abstol,
-                save_everystep=config.save_everystep,
-                saveat=config.saveat,
-                callback=config.callback,
-                sensealg=config.sensealg,
-                maxiters=config.maxiters)
+    solve_kwargs = Dict{Symbol,Any}(
+        :reltol => config.reltol,
+        :abstol => config.abstol,
+        :save_everystep => config.save_everystep,
+        :maxiters => config.maxiters
+    )
+
+    # Add optional arguments if they're not nothing
+    if !isnothing(config.saveat)
+        solve_kwargs[:saveat] = config.saveat
+    end
+    if !isnothing(config.callback)
+        solve_kwargs[:callback] = config.callback
+    end
+    if !isnothing(config.sensealg)
+        solve_kwargs[:sensealg] = config.sensealg
+    end
+
+    sol = solve(prob, config.alg; solve_kwargs...)
 
     # Check solution status
     if sol.retcode != :Success
@@ -256,12 +266,21 @@ function solve_mfg_ode(J::MeanFieldGame{R}, Θ, config::RK4Config) where R
     prob = ODEProblem(mfg_ode!, u0, tspan, p)
 
     # Solve with fixed-step RK4
-    sol = solve(prob, RK4();
-                dt=config.dt,
-                adaptive=false,
-                save_everystep=config.save_everystep,
-                callback=config.callback,
-                sensealg=config.sensealg)
+    solve_kwargs = Dict{Symbol,Any}(
+        :dt => config.dt,
+        :adaptive => false,
+        :save_everystep => config.save_everystep
+    )
+
+    # Add optional arguments if they're not nothing
+    if !isnothing(config.callback)
+        solve_kwargs[:callback] = config.callback
+    end
+    if !isnothing(config.sensealg)
+        solve_kwargs[:sensealg] = config.sensealg
+    end
+
+    sol = solve(prob, RK4(); solve_kwargs...)
 
     return sol
 end
@@ -289,12 +308,21 @@ function solve_mfg_ode(J::MeanFieldGame{R}, Θ, config::RK1Config) where R
     prob = ODEProblem(mfg_ode!, u0, tspan, p)
 
     # Solve with fixed-step Euler
-    sol = solve(prob, Euler();
-                dt=config.dt,
-                adaptive=false,
-                save_everystep=config.save_everystep,
-                callback=config.callback,
-                sensealg=config.sensealg)
+    solve_kwargs = Dict{Symbol,Any}(
+        :dt => config.dt,
+        :adaptive => false,
+        :save_everystep => config.save_everystep
+    )
+
+    # Add optional arguments if they're not nothing
+    if !isnothing(config.callback)
+        solve_kwargs[:callback] = config.callback
+    end
+    if !isnothing(config.sensealg)
+        solve_kwargs[:sensealg] = config.sensealg
+    end
+
+    sol = solve(prob, Euler(); solve_kwargs...)
 
     return sol
 end

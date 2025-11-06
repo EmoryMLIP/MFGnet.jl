@@ -35,15 +35,15 @@ Solves dS/dt = σ(K(t)*S + b(t)) using forward Euler: S^(k+1) = S^k + h_k * σ(K
 """
 function (N::ResNN{R})(S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
-	# Pre-allocate storage for intermediate states (needed for backward pass)
-	tmpS_vec = Vector{typeof(S)}(undef, nLayers(N))
+	# Collect intermediate states without mutation using tuple (required for Zygote AD)
+	tmpS_vec = ()
     for k=1:nLayers(N)
-		tmpS_vec[k] = S                        # Cache state at time t_k
+		tmpS_vec = (tmpS_vec..., S)            # Cache state at time t_k
         hk = R(N.ts[k+1]-N.ts[k])              # Time step size
         Θk = linInter1D(N.ts[k],T,Θ)           # Interpolate parameters at t_k
         S = S + hk .* N.layer(S,Θk)            # Forward Euler step (avoid += mutation)
     end
-    N.tmpS = tmpS_vec  # Store after loop to avoid mutation during AD
+    N.tmpS = [tmpS_vec...]  # Convert tuple to vector and store
     return S
 end
 
@@ -58,33 +58,31 @@ function getJSTmv(N::ResNN{R},Z::AbstractVector{R},S::AbstractArray{R},Θ)  wher
     T = maximum(N.ts)
     hk = R(N.ts[end]-N.ts[end-1])
     Θk = linInter1D(N.ts[end-1],T,Θ)
-    # Pre-allocate storage for adjoint variables (needed for parameter gradients)
-    tmpZ_vec = Vector{typeof(Z)}(undef, nLayers(N)+1)
-    tmpZ_vec[nLayers(N)] = Z
+    # Collect adjoint variables using tuples (required for Zygote AD)
+    tmpZ_vec = (Z,)
     Z = Z + hk .* getJSTmv(N.layer,Z,N.tmpS[end],Θk)  # Last time step (avoid .+=)
 
     for k=nLayers(N)-1:-1:1                             # Backward in time
-		tmpZ_vec[k] = Z                                  # Cache adjoint at t_k
+		tmpZ_vec = (tmpZ_vec..., Z)                      # Cache adjoint at t_k
         hk = N.ts[k+1]-N.ts[k]
         Θk = linInter1D(N.ts[k],T,Θ)
         Z = Z + hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)   # Adjoint Euler step (avoid +=)
     end
-    N.tmpZ = tmpZ_vec  # Store after loop to avoid mutation during AD
+    N.tmpZ = reverse([tmpZ_vec...])  # Convert to vector in forward order
     return Z
 end
 
 function getJSTmv(N::ResNN{R},Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
-	# Pre-allocate vector for better performance (avoid tuple appending)
-	tmpZ_vec = Vector{typeof(Z)}(undef, nLayers(N)+1)
-	tmpZ_vec[nLayers(N)+1] = Z  # Initialize with Z instead of scalar 1
+	# Collect adjoint variables using tuples (required for Zygote AD)
+	tmpZ_vec = (Z,)
     for k=nLayers(N):-1:1
-		tmpZ_vec[k] = Z
+		tmpZ_vec = (tmpZ_vec..., Z)
         hk = N.ts[k+1]-N.ts[k]
         Θk = linInter1D(N.ts[k],T,Θ)
         Z = Z + hk .* getJSTmv(N.layer,Z,N.tmpS[k],Θk)  # Avoid += mutation
     end
-    N.tmpZ = tmpZ_vec  # Store after loop to avoid mutation during AD
+    N.tmpZ = reverse([tmpZ_vec...])  # Convert to vector in forward order
     return Z
 end
 
@@ -175,9 +173,9 @@ end
 
 function getGradAndHessian(N::ResNN{R},dZ::AbstractArray{R},d2Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
-    tmpZ_vec = Vector{typeof(dZ)}(undef, nLayers(N))
+    tmpZ_vec = ()
     for k=nLayers(N):-1:1
-        tmpZ_vec[k] = dZ
+        tmpZ_vec = (tmpZ_vec..., dZ)
         Θk = linInter1D(N.ts[k],T,Θ)
         hk = N.ts[k+1]-N.ts[k]
         ddZ,d2Z1 =   getGradAndHessian(N.layer,dZ,N.tmpS[k],Θk)
@@ -185,7 +183,7 @@ function getGradAndHessian(N::ResNN{R},dZ::AbstractArray{R},d2Z::AbstractArray{R
         d2Z = hk .*d2Z1 + d2Z2
         dZ  = dZ + hk .* ddZ  # Avoid += mutation
     end
-    N.tmpZ = tmpZ_vec  # Store after loop
+    N.tmpZ = reverse([tmpZ_vec...])  # Convert to vector in forward order
     return dZ,d2Z
 end
 

@@ -31,12 +31,13 @@ Forward pass through multi-layer network
 Computes S = Lₙ ∘ Lₙ₋₁ ∘ ... ∘ L₁(S₀) by sequential layer composition
 """
 function (N::NN)(S::AbstractArray{R},Θ) where R <: Real
-	# Pre-allocate storage for intermediate states (needed for backward pass)
-	N.tmpS = Vector{typeof(S)}(undef, nLayers(N))
+	# Collect intermediate states using tuples (required for Zygote AD)
+	tmpS_vec = ()
 	for k=1: nLayers(N)
-		N.tmpS[k] = S                         # Cache input to layer k
+		tmpS_vec = (tmpS_vec..., S)           # Cache input to layer k
 		S = N.layers[k](S,Θ[k]) :: Array{R,2} # Apply layer k
     end
+    N.tmpS = [tmpS_vec...]  # Convert tuple to vector
     return S
 end
 
@@ -48,27 +49,28 @@ Backward pass: chain rule through all layers
 Computes gradient via reverse composition: Z₀ = J_L₁' ∘ J_L₂' ∘ ... ∘ J_Lₙ'(Zₙ)
 """
 function getJSTmv(N::NN,Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
-	# Pre-allocate storage for adjoint variables at each layer
-	N.tmpZ = Vector{typeof(Z)}(undef, nLayers(N))
+	# Collect adjoint variables using tuples (required for Zygote AD)
+	tmpZ_vec = ()
     for k=nLayers(N):-1:1                          # Backward through layers
-        N.tmpZ[k] = Z                              # Cache adjoint before layer k
+        tmpZ_vec = (tmpZ_vec..., Z)                # Cache adjoint before layer k
         Z = getJSTmv(N.layers[k],Z,N.tmpS[k],Θ[k]) # Backprop through layer k
     end
+    N.tmpZ = reverse([tmpZ_vec...])  # Convert to vector
     return Z
 end
 
 function getGradAndHessian(N::NN,dZ::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
-	# Pre-allocate vector for better performance (avoid tuple appending)
-	N.tmpZ = Vector{typeof(dZ)}(undef, nLayers(N))
-	N.tmpZ[end] = dZ
+	# Collect adjoint variables using tuples (required for Zygote AD)
+	tmpZ_vec = (dZ,)
     dZ, d2Z = getGradAndHessian(N.layers[end],dZ,N.tmpS[end],Θ[end])
     # dZ  = getJSTmv(N.layers[end],dZ,N.tmp[end],Θ[end])
 
     for k=nLayers(N)-1:-1:1
-        N.tmpZ[k] = dZ
+        tmpZ_vec = (tmpZ_vec..., dZ)
         dZ,d2Z = getGradAndHessian(N.layers[k],dZ,d2Z,N.tmpS[k],Θ[k])
         # dZ  = getJSTmv(N.layers[k],dZ,N.tmp[k],Θ[k])
     end
+    N.tmpZ = reverse([tmpZ_vec...])  # Convert to vector
     return dZ, d2Z
 end
 

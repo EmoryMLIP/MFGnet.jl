@@ -15,12 +15,12 @@ include("runOMThelpers.jl")
 @isdefined(ar) ? ar = ar : ar = x-> R.(x)                             # function to change element type of arrays  and device (e.g., to cuArray)
 @isdefined(m)           ? m=m               : m=16                   # width of network
 @isdefined(nTh)         ? nTh=nTh           : nTh=2                   # number of nodes in ResNet discretization
-@isdefined(nTrain)      ? nTrain=nTrain     : nTrain=16^2
-@isdefined(nVal)        ? nVal=nVal         : nVal=minimum([64^2,nTrain]) # number of training samples
+@isdefined(nTrain)      ? nTrain=nTrain     : nTrain=48^2            # number of training samples (paper uses 2304 for d=2)
+@isdefined(nVal)        ? nVal=nVal         : nVal=minimum([32^2,nTrain]) # number of validation samples
 @isdefined(nt)          ? nt=nt             : nt=4                    # number of time steps for characteristics
 @isdefined(stepper)     ? stepper=stepper   : stepper=RK4Step()       # time stepping for characteristics
 @isdefined(T)           ? T=T               : T=1.0                   # final time for dynamical OT
-@isdefined(alph)        ? α=alph            : α=[1.0,2.0,4.0,2.0,2.0] # weights for objective
+@isdefined(alph)        ? α=alph            : α=[1.0,1.0,5.0,10.0,1.0] # weights for objective [λ_L, ?, λ_KL, α1, α2] - PAPER VALUES
 @isdefined(sampleFreq)  ? sampleFreq = sampleFreq : sampleFreq = 25   # sample frequency
 @isdefined(saveIter)    ? saveIter = saveIter     : saveIter   = 25   # iteration to save weights
 @isdefined(maxIter)     ? maxIter  = maxIter      : maxIter = 200     # max number of iters
@@ -53,7 +53,7 @@ if doPlots
     # validation points on regular grid
     domain = 5.0*[-1 1 -1 1];
     M      = getRegularMesh(domain,[sqrt(nVal),sqrt(nVal)])
-    X0val     = Matrix(getCellCenteredGrid(M)')
+    X0val     = getCellCenteredGrid(M)  # Already returns (2, nVal)
     X0val   = ar([X0val; zeros(d-2,size(X0val,2))]); nVal = size(X0val,2)
     rho0xVal = rho0(X0val)
     rho1xVal = rho1(X0val)

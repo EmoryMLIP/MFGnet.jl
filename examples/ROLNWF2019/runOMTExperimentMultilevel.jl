@@ -41,11 +41,11 @@ for k=1:length(ang)
 end
 rho0 = GaussianMixture(Gs)
 
+domain = 5.0*[-1 1 -1 1]  # domain for validation
 if doPlots
     # validation points on regular grid
-    domain = 5.0*[-1 1 -1 1];
     M      = getRegularMesh(domain,[sqrt(nVal),sqrt(nVal)])
-    X0val     = Matrix(getCellCenteredGrid(M)')
+    X0val     = getCellCenteredGrid(M)  # Already returns (2, nVal)
     X0val   = ar([X0val; zeros(d-2,size(X0val,2))]); nVal = size(X0val,2)
     rho0xVal = rho0(X0val)
     rho1xVal = rho1(X0val)
@@ -77,11 +77,11 @@ Jv  = MeanFieldGame(Fv,Gv,X0val,rho0,wVal,Φ=Φ,stepper=stepper,nt=nt,α=α,tspa
 Θ = (w0,(ΘN),A0,b0,z0)
 
 parms = MFGnet.myMap(x->x,Θ)
-ps = params(parms)
+ps = Flux.params(parms)
 
 println("\n\n ---------- OMT Driver -------------\n\n")
 println("results stored in: $(pwd()*"/"*saveStr)-level-1.jld")
-println("sampleFreq = $(sampleFreq), α = $(α), nTh = $(nTh), m = $(m), nt = $(J.nt)")
+println("sampleFreq = $(sampleFreq), α = $(α), nTh = $(nTh), m = $(m), nt = $(nt)")
 println("DIMENSION = $(d), nTrain = $(nTrain), nVal = $(nVal), saveIter = $(saveIter), maxIter = $(maxIter)\n\n")
 println("optim: $optim")
 
@@ -252,7 +252,7 @@ for level=1:length(nTrain)
             cbBFGS(k)
         end
     end
-    println("average time per iteration: $(runtime/maxIter)")
+    println("average time per iteration: $(runtime/maxIter[level])")
     Θopt = MFGnet.param2vec(parms)
     Θopt = MFGnet.vec2param!(Θopt,Θ)
 

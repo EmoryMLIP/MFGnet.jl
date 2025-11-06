@@ -17,7 +17,6 @@ module MFGnet
 	using Zygote
     using Printf
     using DifferentialEquations
-    using DiffEqSensitivity
     using Optimization
     using OptimizationOptimJL
     using ComponentArrays
@@ -34,8 +33,8 @@ module MFGnet
     include("layers.jl")       # Uses NN() in PotentialNN constructor
     include("timeStepping.jl") # Must come before odefun and MFG
     include("odefun.jl")       # Must come before MFG
-    include("diffeq_interface.jl")  # DifferentialEquations.jl wrapper
     include("MFG.jl")          # Uses odefun, timeStepping, layers
+    include("diffeq_interface.jl")  # DifferentialEquations.jl wrapper (must come after MFG.jl)
     include("param2vec.jl")
     include("Gaussians.jl")
     include("bfgs.jl")

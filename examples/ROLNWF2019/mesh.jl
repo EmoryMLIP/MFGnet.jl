@@ -13,6 +13,7 @@ struct RegularMesh{T<:Real}
     domain::Vector{T}  # [xmin, xmax, ymin, ymax]
     n::Vector{Int}     # [nx, ny] number of cells
     h::Vector{T}       # [hx, hy] cell sizes
+    dim::Int           # spatial dimension (always 2 for this implementation)
 end
 
 """
@@ -21,22 +22,28 @@ end
 Create a regular mesh on a rectangular domain.
 
 # Arguments
-- `domain`: [xmin, xmax, ymin, ymax] - domain bounds
-- `n`: [nx, ny] - number of cells in each dimension
+- `domain`: [xmin, xmax, ymin, ymax] - domain bounds (Vector or Matrix)
+- `n`: [nx, ny] - number of cells in each dimension (Vector, can have floats which will be converted to Int)
 
 # Returns
 - `RegularMesh` object
 """
-function getRegularMesh(domain::Vector{T}, n::Vector{Int}) where T<:Real
-    @assert length(domain) == 4 "domain must be [xmin, xmax, ymin, ymax]"
-    @assert length(n) == 2 "n must be [nx, ny]"
-    @assert all(n .> 0) "Number of cells must be positive"
+function getRegularMesh(domain::Union{Vector{T},Matrix{T}}, n::Union{Vector,Matrix}) where T<:Real
+    # Convert domain to vector if it's a matrix
+    domain_vec = vec(domain)
+    @assert length(domain_vec) == 4 "domain must be [xmin, xmax, ymin, ymax]"
 
-    hx = (domain[2] - domain[1]) / n[1]
-    hy = (domain[4] - domain[3]) / n[2]
+    # Convert n to Int vector
+    n_vec = Int.(vec(n))
+    @assert length(n_vec) == 2 "n must be [nx, ny]"
+    @assert all(n_vec .> 0) "Number of cells must be positive"
+
+    hx = (domain_vec[2] - domain_vec[1]) / n_vec[1]
+    hy = (domain_vec[4] - domain_vec[3]) / n_vec[2]
     h = [hx, hy]
+    dim = 2
 
-    return RegularMesh(domain, n, h)
+    return RegularMesh(domain_vec, n_vec, h, dim)
 end
 
 """
@@ -64,6 +71,28 @@ function getCellCenteredGrid(M::RegularMesh{T}) where T<:Real
     Y = repeat(y', nx, 1)
 
     return [vec(X)'; vec(Y)']
+end
+
+"""
+    getCellCenteredAxes(M::RegularMesh)
+
+Get cell-centered axes for plotting.
+
+# Arguments
+- `M`: RegularMesh object
+
+# Returns
+- Tuple (x, y) where x and y are the cell center coordinates along each axis
+"""
+function getCellCenteredAxes(M::RegularMesh{T}) where T<:Real
+    nx, ny = M.n
+    hx, hy = M.h
+    xmin, xmax, ymin, ymax = M.domain
+
+    x = range(xmin + hx/2, xmax - hx/2, length=nx)
+    y = range(ymin + hy/2, ymax - hy/2, length=ny)
+
+    return (x, y)
 end
 
 """

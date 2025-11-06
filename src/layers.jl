@@ -54,7 +54,9 @@ function getGradPotential(Φ::PotentialNN,XT::AbstractArray{R},Θ) where R <: Re
     A = symmetrize(A)
     nex = size(XT,2)
     # t1 = Φ.N(XT,ΘN) # run fwd prop to populate N.tmp
-    G1 = getJSTmv(Φ.N,w,XT,ΘN)
+    # Broadcast w to all examples if it's a 1D vector
+    w_mat = w isa AbstractVector ? repeat(reshape(w, :, 1), 1, nex) : w
+    G1 = getJSTmv(Φ.N,w_mat,XT,ΘN)
     return G1 + A*XT .+ c
 end
 
@@ -81,7 +83,9 @@ function getHessian(Φ::PotentialNN,XT::AbstractArray{R},Θ) where R <: Real
     A = symmetrize(A)
 
     # t1 = Φ.N(XT,ΘN) # run fwd prop to populate N.tmp
-    H1,G = getJSJSTmv(Φ.N,w,XT,ΘN)
+    # Broadcast w to all examples if it's a 1D vector
+    w_mat = w isa AbstractVector ? repeat(reshape(w, :, 1), 1, nex) : w
+    H1,G = getJSJSTmv(Φ.N,w_mat,XT,ΘN)
     return H1 .+ A, G+ A*XT .+ c
 end
 
@@ -92,7 +96,9 @@ function getGradAndHessian(Φ::PotentialNN,XT::AbstractArray{R},Θ) where R <: R
     nex = size(XT,2)
     (w,ΘN,A,c,z) = Θ
     A = symmetrize(A)
-    G,H = getGradAndHessian(Φ.N,w,XT,ΘN)
+    # Broadcast w to all examples if it's a 1D vector
+    w_mat = w isa AbstractVector ? repeat(reshape(w, :, 1), 1, nex) : w
+    G,H = getGradAndHessian(Φ.N,w_mat,XT,ΘN)
     return G+ A*XT .+ c, H .+ A
 end
 
@@ -130,7 +136,10 @@ function getTraceHess(Φ::PotentialNN,XT::AbstractArray{R},Θ) where R <: Real
     A = symmetrize(A)
 
     d = size(XT,1)
+    nex = size(XT,2)
     Q = getQ(Φ,XT)
-    trH1 = getTraceHess(Φ.N,w,Q,XT,ΘN)
+    # Broadcast w to all examples if it's a 1D vector
+    w_mat = w isa AbstractVector ? repeat(reshape(w, :, 1), 1, nex) : w
+    trH1 = getTraceHess(Φ.N,w_mat,Q,XT,ΘN)
     return trH1 .+ tr(Q'*A*Q)
 end
