@@ -16,18 +16,10 @@ mutable struct Fcomb
 end
 
 function (F::Fcomb)(U,t)
-    res = F.Fs[1](U,t)
-    for k=2:length(F.Fs)
-        res += F.Fs[k](U,t)
-    end
-    return res
+    return sum(f(U,t) for f in F.Fs)
 end
 function getDeltaF(F::Fcomb,U,t)
-    res = getDeltaF(F.Fs[1],U,t)
-    for k=2:length(F.Fs)
-        res += getDeltaF(F.Fs[k],U,t)
-    end
-    return res
+    return sum(getDeltaF(f,U,t) for f in F.Fs)
 end
 
 function Base.show(io::IO, F::Fcomb)

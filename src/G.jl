@@ -15,11 +15,7 @@ mutable struct Gcomb
 end
 
 function (G::Gcomb)(U)
-    res = G.Gs[1](U)
-    for k=2:length(G.Gs)
-        res += G.Gs[k](U)
-    end
-    return res
+    return sum(g(U) for g in G.Gs)
 end
 function Base.show(io::IO, G::Gcomb)
   print(io, G.Gs[1])
