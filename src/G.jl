@@ -58,12 +58,12 @@ function Base.show(io::IO, G::Gls)
 end
 
 function (G::Gls)(U::AbstractArray{R}) where R <: Real
-    d = size(U,1)-4
+    d = spatial_dim(U)
 
     # Compute exp once and reuse (was computed twice - performance bug!)
-    detDy = exp.(-U[d+1, :])           # det(Dy) from log-determinant
-    rho_T = G.rho0x ./ detDy           # Terminal density via change of variables
-    rho_target = G.rho1(U[1:d, :])     # Target density at terminal positions
+    detDy = exp.(-U[d+1, :])               # det(Dy) from log-determinant
+    rho_T = G.rho0x ./ detDy               # Terminal density via change of variables
+    rho_target = G.rho1(spatial_positions(U))  # Target density at terminal positions
 
     # Least-squares cost: μ/2 ∫(ρ(T) - ρ₁)² · (ρ₀/ρ(T)) dx
     diff = rho_T - rho_target
@@ -73,10 +73,9 @@ function (G::Gls)(U::AbstractArray{R}) where R <: Real
 end
 
 function getDeltaG(G::Gls,U::AbstractArray)
-    (d,nex) = size(U)
-    d      -= 4
+    d = spatial_dim(U)
     detDy = exp.(U[d+1,:])
-    return G.mu.*(G.rho0x ./detDy - G.rho1(U[1:d,:]))
+    return G.mu .* (G.rho0x ./ detDy .- G.rho1(spatial_positions(U)))
 end
 
 """
@@ -104,18 +103,16 @@ mutable struct Gkl
     mu::Real      # = penalty parameter
 end
 function (G::Gkl)(U)
-    (d,nex) = size(U)
-    d -= 4
-    return G.mu .* (log.(G.rho0x) - U[d+1,:] - log.(G.rho1(U[1:d,:])))
+    d = spatial_dim(U)
+    return G.mu .* (log.(G.rho0x) .- U[d+1,:] .- log.(G.rho1(spatial_positions(U))))
 end
 function Base.show(io::IO, G::Gkl)
   print(io, "$(G.mu) ⋅ Gkl(U)")
 end
 
 function getDeltaG(G::Gkl,U::AbstractArray{R})  where R <: Real
-    (d,nex) = size(U)
-    d      -= 4
-    return G.mu.*(R(1.0) .+ log.(G.rho0x) - U[d+1,:] - log.(G.rho1(U[1:d,:])))
+    d = spatial_dim(U)
+    return G.mu .* (one(R) .+ log.(G.rho0x) .- U[d+1,:] .- log.(G.rho1(spatial_positions(U))))
 end
 
 
@@ -142,13 +139,9 @@ mutable struct Gpref
     mu::Real        # = penalty parameter
 end
 function (G::Gpref)(U)
-    (d,nex) = size(U)
-    d -= 4
-    return G.mu .* G.Pref(U[1:d,:])
+    return G.mu .* G.Pref(spatial_positions(U))
 end
 
 function getDeltaG(G::Gpref,U::AbstractArray{R})  where R <: Real
-    (d,nex) = size(U)
-    d      -= 4
-    return G.mu.*(G.Pref(U[1:d,:]))
+    return G.mu .* G.Pref(spatial_positions(U))
 end

@@ -22,11 +22,11 @@ U = [x; l; v; f; hj] where:
 dU/dt: Time derivative of state vector
 """
 function odefun(J,U::AbstractArray{R},Θ,t::R) where R <: Real
-    (d,nex) = size(U)
-    d = d-4;  # Spatial dimension (total size - 4 scalar fields)
+    nex = size(U, 2)
+    d = spatial_dim(U)  # Spatial dimension
 
     # Augment position with time for potential evaluation
-    XT = [ U[1:d,:]; fill(t,1,nex)]
+    XT = [spatial_positions(U); fill(t,1,nex)]
 
     # Evaluate potential and its derivatives
     Phi = J.Φ(XT,Θ)  # Forward pass to populate cached values
@@ -34,13 +34,13 @@ function odefun(J,U::AbstractArray{R},Θ,t::R) where R <: Real
     trH = getTraceHess(J.Φ,XT,Θ)           # tr(∇²Φ) for density evolution
 
     # Optimal velocity: dx/dt = -α₁⁻¹∇ₓΦ (gradient descent on potential)
-    dx = -(1/J.α[1])*gradPhi[1:d,:]
+    dx = -(1/J.α[1]) * gradPhi[1:d,:]
 
     # Log-determinant evolution: dl/dt = -α₁⁻¹tr(∇²Φ) (continuity equation)
-    dl = -(1/J.α[1])*trH
+    dl = -(1/J.α[1]) * trH
 
     # Transport cost rate: dv/dt = ½|velocity|²
-    dv = R(0.5).*sum(dx.^2,dims=1)
+    dv = 0.5 .* sum(dx.^2, dims=1)
 
     # Interaction cost rate: df/dt = F(ρ,t)
     df = reshape(J.F(U,t),1,nex)

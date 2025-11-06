@@ -36,7 +36,7 @@ Solves dS/dt = σ(K(t)*S + b(t)) using forward Euler: S^(k+1) = S^k + h_k * σ(K
 function (N::ResNN{R})(S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
 	# Pre-allocate storage for intermediate states (needed for backward pass)
-	N.tmpS = Vector{Any}(undef, nLayers(N))
+	N.tmpS = Vector{typeof(S)}(undef, nLayers(N))
     for k=1:nLayers(N)
 		N.tmpS[k] = S                          # Cache state at time t_k
         hk = R(N.ts[k+1]-N.ts[k])              # Time step size
@@ -58,7 +58,7 @@ function getJSTmv(N::ResNN{R},Z::AbstractVector{R},S::AbstractArray{R},Θ)  wher
     hk = R(N.ts[end]-N.ts[end-1])
     Θk = linInter1D(N.ts[end-1],T,Θ)
     # Pre-allocate storage for adjoint variables (needed for parameter gradients)
-    N.tmpZ = Vector{Any}(undef, nLayers(N)+1)
+    N.tmpZ = Vector{typeof(Z)}(undef, nLayers(N)+1)
     N.tmpZ[nLayers(N)] = Z
     Z = Z .+ hk .* getJSTmv(N.layer,Z,N.tmpS[end],Θk)  # Last time step
 
@@ -74,8 +74,8 @@ end
 function getJSTmv(N::ResNN{R},Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
     T = maximum(N.ts)
 	# Pre-allocate vector for better performance (avoid tuple appending)
-	N.tmpZ = Vector{Any}(undef, nLayers(N)+1)
-	N.tmpZ[nLayers(N)+1] = 1
+	N.tmpZ = Vector{typeof(Z)}(undef, nLayers(N)+1)
+	N.tmpZ[nLayers(N)+1] = Z  # Initialize with Z instead of scalar 1
     for k=nLayers(N):-1:1
 		N.tmpZ[k] = Z
         hk = N.ts[k+1]-N.ts[k]

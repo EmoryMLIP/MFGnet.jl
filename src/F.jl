@@ -58,18 +58,18 @@ mutable struct Fp{R}
 end
 
 function (F::Fp{R})(U::AbstractArray{R},t::R) where R <: Real
-    (d,nex)     = size(U)
-    d -= 4
-    return F.λ .* F.Q([U[1:d,:]; fill(t,1,nex)])
+    nex = size(U, 2)
+    X = spatial_positions(U)
+    return F.λ .* F.Q([X; fill(t,1,nex)])
 end
 
 """
 L2 derivative of running costs F
 """
 function getDeltaF(F::Fp{R},U::AbstractArray{R},t::R) where R <: Real
-    (d,nex) = size(U)
-    d      -= 4
-    return F.λ.*F.Q([U[1:d,:]; fill(t,1,nex)])
+    nex = size(U, 2)
+    X = spatial_positions(U)
+    return F.λ .* F.Q([X; fill(t,1,nex)])
 end
 
 
@@ -92,15 +92,13 @@ mutable struct Fe{R}
 end
 
 function (F::Fe{R})(U::AbstractArray{R},t::R) where R <: Real
-    (d,nex)     = size(U)
-    d -= 4
-    return F.λ .* (log.(F.rho0x) - vec(U[end-2,:]))
+    # U[end-2,:] contains log determinant component
+    return F.λ .* (log.(F.rho0x) .- vec(U[end-2,:]))
 end
 
 function getDeltaF(F::Fe{R},U::AbstractArray{R},t::R) where R <: Real
-    (d,nex) = size(U)
-    d      -= 4
-    return F.λ.*(log.(F.rho0x) - vec(U[end-2,:]) .+ R(1))
+    # Derivative includes +1 correction term
+    return F.λ .* (log.(F.rho0x) .- vec(U[end-2,:]) .+ one(R))
 end
 
 """

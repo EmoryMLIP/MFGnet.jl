@@ -32,7 +32,7 @@ Computes S = Lₙ ∘ Lₙ₋₁ ∘ ... ∘ L₁(S₀) by sequential layer comp
 """
 function (N::NN)(S::AbstractArray{R},Θ) where R <: Real
 	# Pre-allocate storage for intermediate states (needed for backward pass)
-	N.tmpS = Vector{Any}(undef, nLayers(N))
+	N.tmpS = Vector{typeof(S)}(undef, nLayers(N))
 	for k=1: nLayers(N)
 		N.tmpS[k] = S                         # Cache input to layer k
 		S = N.layers[k](S,Θ[k]) :: Array{R,2} # Apply layer k
@@ -49,7 +49,7 @@ Computes gradient via reverse composition: Z₀ = J_L₁' ∘ J_L₂' ∘ ... �
 """
 function getJSTmv(N::NN,Z::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
 	# Pre-allocate storage for adjoint variables at each layer
-	N.tmpZ = Vector{Any}(undef, nLayers(N))
+	N.tmpZ = Vector{typeof(Z)}(undef, nLayers(N))
     for k=nLayers(N):-1:1                          # Backward through layers
         N.tmpZ[k] = Z                              # Cache adjoint before layer k
         Z = getJSTmv(N.layers[k],Z,N.tmpS[k],Θ[k]) # Backprop through layer k
@@ -59,7 +59,7 @@ end
 
 function getGradAndHessian(N::NN,dZ::AbstractArray{R},S::AbstractArray{R},Θ) where R <: Real
 	# Pre-allocate vector for better performance (avoid tuple appending)
-	N.tmpZ = Vector{Any}(undef, nLayers(N))
+	N.tmpZ = Vector{typeof(dZ)}(undef, nLayers(N))
 	N.tmpZ[end] = dZ
     dZ, d2Z = getGradAndHessian(N.layers[end],dZ,N.tmpS[end],Θ[end])
     # dZ  = getJSTmv(N.layers[end],dZ,N.tmp[end],Θ[end])

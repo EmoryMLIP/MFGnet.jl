@@ -17,6 +17,7 @@ module MFGnet
 	using Zygote
     using Printf
 
+    include("mfg_helpers.jl")  # Helper functions used throughout
     include("F.jl")
     include("G.jl")
     include("utils.jl")        # Must come before ResNN (ResNN uses append)
