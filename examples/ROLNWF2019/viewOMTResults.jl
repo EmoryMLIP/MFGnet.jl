@@ -1,5 +1,5 @@
 using Plots
-using jInv.Mesh
+include("mesh.jl")
 using Flux
 using Printf
 using Statistics

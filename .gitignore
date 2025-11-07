@@ -1,5 +1,6 @@
 # Output files
 *.jld
+*.txt
 
 # IDE/Editor
 .vscode/

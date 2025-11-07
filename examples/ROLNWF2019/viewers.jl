@@ -4,9 +4,9 @@
     Input:
     I - image data
     M - 2 dimensional RegularMesh
-    kwargs get piped to pcolormesh
+    kwargs get piped to heatmap
 """
-function viewImage2D(I::Array,M;kwargs...)
+function viewImage2D(I::Array,M::RegularMesh;kwargs...)
 	if M.dim!=2
 		error("viewImage2D supports only 2-dimensional images")
 	end

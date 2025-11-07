@@ -8,6 +8,15 @@
 
 This repository contains the Julia code used in [*A Machine Learning Framework for Solving High-Dimensional Mean Field Game and Mean Field Control Problems*](https://doi.org/10.1073/pnas.1922204117).
 
+## Paper Version
+
+The original code used to produce the results in the PNAS 2020 paper can be found at:
+- **Commit**: `da5712c0ae4d52bfcba11c844918233b6554c09f`
+- **Date**: December 13, 2019
+- **Access**: `git checkout da5712c`
+
+The current version of this repository has been modernized for Julia 1.10+ with updated dependencies (DifferentialEquations.jl, Optimization.jl, and other modern Julia ecosystem packages) and improved functionality, while maintaining the core algorithms from the paper.
+
 ## Installation
 
 This package can be installed using Julia's package manager. To do this, type:
